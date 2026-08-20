@@ -1,131 +1,154 @@
+/**
+ * 内置 Steam 游戏库（含 AppID，可直达商店页）。
+ * min* 字段为官方公布的最低配置，折算为与本工具一致的性能指数。
+ */
+
 export interface Game {
-  id: number; // Steam AppID
+  id: number;
   name: string;
   zh: string;
   year: number;
   genres: string[];
   minCpu: number;
   minGpu: number;
-  minRam: number; // GB
-  os: { win: boolean; mac: boolean; linux: boolean };
-  w10?: boolean; // 要求 Windows 10 及以上
+  minRam: number;
+  platforms: { win: boolean; mac: boolean; linux: boolean };
   vr?: boolean;
+  free?: boolean;
+  custom?: boolean;
 }
 
-type Raw = [
-  number,
-  string,
-  string,
-  number,
-  string,
-  number,
-  number,
-  number,
-  string,
-  string?
+export const ALL_GENRES = [
+  "射击", "竞技", "动作", "冒险", "ARPG", "开放世界", "魂系", "策略", "模拟",
+  "竞速", "体育", "生存", "恐怖", "合作", "休闲", "平台", "独立", "沙盒", "其他",
 ];
 
-// [AppID, 英文名, 中文名, 年份, 类型, 最低CPU指数, 最低GPU指数, 最低内存GB, 平台(W/M/L), 标记(10=需Win10+, VR)]
-const RAW: Raw[] = [
-  [730, "Counter-Strike 2", "反恐精英 2", 2023, "射击|竞技", 70, 80, 8, "WL", "10"],
-  [570, "Dota 2", "刀塔 2", 2013, "MOBA|竞技", 60, 60, 4, "WML"],
-  [1172470, "Apex Legends", "Apex 英雄", 2020, "射击|大逃杀", 105, 90, 8, "W", "10"],
-  [578080, "PUBG: BATTLEGROUNDS", "绝地求生", 2017, "射击|大逃杀", 95, 140, 8, "W", "10"],
-  [1203220, "NARAKA: BLADEPOINT", "永劫无间", 2021, "动作|竞技", 100, 110, 12, "W", "10"],
-  [553850, "HELLDIVERS 2", "绝地潜兵 2", 2024, "射击|合作", 170, 380, 8, "W", "10"],
-  [2358720, "Black Myth: Wukong", "黑神话：悟空", 2024, "动作|角色扮演", 160, 260, 16, "W", "10"],
-  [1245620, "ELDEN RING", "艾尔登法环", 2022, "角色扮演|魂系", 160, 260, 12, "W", "10"],
-  [814380, "Sekiro", "只狼：影逝二度", 2019, "动作|魂系", 70, 120, 4, "W"],
-  [374320, "DARK SOULS III", "黑暗之魂 3", 2016, "角色扮演|魂系", 70, 100, 8, "W"],
-  [1086940, "Baldur's Gate 3", "博德之门 3", 2023, "角色扮演|策略", 100, 230, 8, "WM", "10"],
-  [1091500, "Cyberpunk 2077", "赛博朋克 2077", 2020, "角色扮演|开放世界", 160, 260, 12, "W", "10"],
-  [292030, "The Witcher 3", "巫师 3：狂猎", 2015, "角色扮演|开放世界", 85, 110, 6, "W"],
-  [271590, "Grand Theft Auto V", "侠盗猎车手 5", 2015, "动作|开放世界", 60, 90, 4, "W", "10"],
-  [1174180, "Red Dead Redemption 2", "荒野大镖客：救赎 2", 2019, "动作|开放世界", 110, 200, 12, "W", "10"],
-  [582010, "Monster Hunter: World", "怪物猎人：世界", 2018, "动作|合作", 95, 120, 8, "W"],
-  [2246340, "Monster Hunter Wilds", "怪物猎人：荒野", 2025, "动作|合作", 220, 310, 16, "W", "10"],
-  [1623730, "Palworld", "幻兽帕鲁", 2024, "生存建造|开放世界", 90, 150, 16, "W", "10"],
-  [1551360, "Forza Horizon 5", "极限竞速：地平线 5", 2021, "竞速|开放世界", 95, 230, 8, "W", "10"],
-  [1293830, "Forza Horizon 4", "极限竞速：地平线 4", 2018, "竞速|开放世界", 85, 70, 8, "W"],
-  [1593500, "God of War", "战神", 2022, "动作|冒险", 95, 140, 8, "W", "10"],
-  [1817070, "Marvel's Spider-Man", "漫威蜘蛛侠 重制版", 2022, "动作|开放世界", 95, 110, 8, "W", "10"],
-  [1151640, "Horizon Zero Dawn", "地平线：零之曙光", 2020, "动作|开放世界", 95, 180, 8, "W", "10"],
-  [2138330, "Ghost of Tsushima", "对马岛之魂", 2024, "动作|开放世界", 150, 140, 8, "W", "10"],
-  [1259420, "Days Gone", "往日不再", 2021, "动作|开放世界", 95, 160, 8, "W", "10"],
-  [990080, "Hogwarts Legacy", "霍格沃茨之遗", 2023, "角色扮演|冒险", 120, 140, 16, "W", "10"],
-  [2050650, "Resident Evil 4", "生化危机 4 重制版", 2023, "动作|恐怖", 140, 150, 12, "W", "10"],
-  [1196590, "Resident Evil Village", "生化危机 8：村庄", 2021, "动作|恐怖", 140, 165, 8, "W", "10"],
-  [534380, "Dying Light 2", "消逝的光芒 2", 2022, "动作|开放世界", 130, 150, 8, "W", "10"],
-  [782330, "DOOM Eternal", "毁灭战士：永恒", 2020, "射击|动作", 140, 230, 8, "W", "10"],
-  [638970, "Yakuza 0", "如龙 0", 2018, "动作|冒险", 65, 60, 4, "W"],
-  [252950, "Rocket League", "火箭联盟", 2015, "竞速|竞技", 50, 40, 4, "W"],
-  [230410, "Warframe", "星际战甲", 2013, "射击|动作", 45, 30, 4, "W"],
-  [1085660, "Destiny 2", "命运 2", 2019, "射击|角色扮演", 75, 110, 8, "W", "10"],
-  [252490, "Rust", "腐蚀", 2018, "生存建造|多人", 90, 70, 10, "W"],
-  [892970, "Valheim", "英灵神殿", 2021, "生存建造|合作", 85, 90, 8, "WL"],
-  [251570, "7 Days to Die", "七日杀", 2013, "生存建造|恐怖", 80, 60, 8, "WML"],
-  [242760, "The Forest", "森林", 2018, "生存建造|恐怖", 55, 45, 4, "W"],
-  [1326470, "Sons Of The Forest", "森林之子", 2023, "生存建造|恐怖", 160, 260, 12, "W", "10"],
-  [648800, "Raft", "木筏求生", 2022, "生存建造|合作", 60, 40, 6, "W"],
-  [264710, "Subnautica", "深海迷航", 2018, "冒险|生存建造", 55, 45, 4, "WM"],
-  [275850, "No Man's Sky", "无人深空", 2016, "冒险|开放世界", 70, 80, 8, "W"],
-  [1966720, "Lethal Company", "致命公司", 2023, "恐怖|合作", 60, 50, 8, "W", "10"],
-  [739630, "Phasmophobia", "恐鬼症", 2020, "恐怖|合作", 100, 230, 8, "W"],
-  [550, "Left 4 Dead 2", "求生之路 2", 2009, "射击|合作", 35, 15, 2, "WML"],
-  [620, "Portal 2", "传送门 2", 2011, "解谜|合作", 30, 12, 2, "WML"],
-  [546560, "Half-Life: Alyx", "半衰期：爱莉克斯", 2020, "射击|冒险", 140, 260, 12, "WL", "VR"],
-  [620980, "Beat Saber", "节奏光剑", 2019, "音乐|动作", 100, 230, 8, "W", "VR"],
-  [1426210, "It Takes Two", "双人成行", 2021, "合作|冒险", 70, 60, 8, "W", "10"],
-  [728880, "Overcooked! 2", "胡闹厨房 2", 2018, "合作|休闲", 70, 55, 4, "WM"],
-  [1172620, "Sea of Thieves", "盗贼之海", 2020, "冒险|合作", 85, 60, 4, "W", "10"],
-  [548430, "Deep Rock Galactic", "深岩银河", 2020, "射击|合作", 55, 60, 6, "W"],
-  [1517290, "Battlefield 2042", "战地 2042", 2021, "射击|多人", 130, 165, 8, "W", "10"],
-  [236390, "War Thunder", "战争雷霆", 2013, "射击|模拟", 55, 30, 4, "WML"],
-  [552990, "World of Warships", "战舰世界", 2017, "射击|模拟", 50, 25, 4, "WM"],
-  [227300, "Euro Truck Simulator 2", "欧洲卡车模拟 2", 2012, "模拟|休闲", 60, 40, 4, "WL"],
-  [255710, "Cities: Skylines", "城市：天际线", 2015, "模拟经营|策略", 70, 45, 8, "WML"],
-  [949230, "Cities: Skylines II", "城市：天际线 2", 2023, "模拟经营|策略", 170, 230, 8, "W", "10"],
-  [289070, "Sid Meier's Civilization VI", "文明 6", 2016, "策略|回合制", 60, 50, 4, "WML"],
-  [779340, "Total War: THREE KINGDOMS", "全面战争：三国", 2019, "策略|即时", 95, 100, 6, "W"],
-  [427520, "Factorio", "异星工厂", 2020, "模拟经营|策略", 60, 25, 4, "WML"],
-  [526870, "Satisfactory", "幸福工厂", 2024, "模拟经营|生存建造", 90, 150, 8, "W"],
-  [413150, "Stardew Valley", "星露谷物语", 2016, "模拟经营|独立", 30, 15, 2, "WML"],
-  [105600, "Terraria", "泰拉瑞亚", 2011, "沙盒|冒险", 28, 12, 2, "WML"],
-  [367520, "Hollow Knight", "空洞骑士", 2017, "独立|动作", 40, 20, 4, "WML"],
-  [1145360, "Hades", "哈迪斯", 2020, "独立|动作", 55, 30, 4, "WM"],
-  [1145350, "Hades II", "哈迪斯 2", 2024, "独立|动作", 110, 90, 8, "W", "10"],
-  [588650, "Dead Cells", "死亡细胞", 2018, "独立|动作", 35, 18, 4, "WML"],
-  [504230, "Celeste", "蔚蓝", 2018, "独立|平台", 30, 12, 2, "WML"],
-  [268910, "Cuphead", "茶杯头", 2017, "独立|射击", 30, 15, 3, "WM"],
-  [945360, "Among Us", "太空狼人杀", 2018, "休闲|多人", 25, 10, 1, "W"],
-  [632360, "Risk of Rain 2", "雨中冒险 2", 2020, "独立|射击", 95, 55, 4, "WML"],
-  [250900, "The Binding of Isaac: Rebirth", "以撒的结合：重生", 2014, "独立|Roguelike", 30, 10, 4, "WML"],
-  [1794680, "Vampire Survivors", "吸血鬼幸存者", 2022, "独立|休闲", 35, 15, 4, "WM"],
-  [2379780, "Balatro", "小丑牌", 2024, "休闲|策略", 25, 10, 4, "WM"],
-  [1868140, "DAVE THE DIVER", "潜水员戴夫", 2023, "冒险|模拟经营", 40, 25, 8, "WM"],
+export const GAMES: Game[] = [
+  /* —— 免费游戏 —— */
+  { id: 730, name: "Counter-Strike 2", zh: "反恐精英2", year: 2023, genres: ["射击", "竞技"], minCpu: 34, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 240, name: "Counter-Strike: Source", zh: "反恐精英：起源", year: 2004, genres: ["射击", "竞技"], minCpu: 12, minGpu: 4, minRam: 1, platforms: { win: true, mac: true, linux: true }, free: true },
+  { id: 570, name: "Dota 2", zh: "刀塔2", year: 2013, genres: ["竞技", "策略"], minCpu: 30, minGpu: 18, minRam: 4, platforms: { win: true, mac: true, linux: true }, free: true },
+  { id: 440, name: "Team Fortress 2", zh: "军团要塞2", year: 2007, genres: ["射击", "休闲"], minCpu: 16, minGpu: 6, minRam: 2, platforms: { win: true, mac: true, linux: true }, free: true },
+  { id: 1172470, name: "Apex Legends", zh: "Apex 英雄", year: 2020, genres: ["射击", "竞技"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 578080, name: "PUBG: BATTLEGROUNDS", zh: "绝地求生", year: 2017, genres: ["射击", "竞技"], minCpu: 40, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 2767030, name: "Marvel Rivals", zh: "漫威争锋", year: 2024, genres: ["射击", "竞技"], minCpu: 58, minGpu: 46, minRam: 12, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 2080790, name: "Delta Force", zh: "三角洲行动", year: 2024, genres: ["射击"], minCpu: 60, minGpu: 54, minRam: 16, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 236390, name: "War Thunder", zh: "战争雷霆", year: 2013, genres: ["射击", "模拟"], minCpu: 30, minGpu: 22, minRam: 6, platforms: { win: true, mac: true, linux: true }, free: true },
+  { id: 2073850, name: "THE FINALS", zh: "决赛", year: 2023, genres: ["射击", "竞技"], minCpu: 52, minGpu: 36, minRam: 12, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 1240440, name: "Halo Infinite", zh: "光环：无限", year: 2021, genres: ["射击"], minCpu: 40, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 1085660, name: "Destiny 2", zh: "命运2", year: 2019, genres: ["射击", "ARPG"], minCpu: 44, minGpu: 34, minRam: 8, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 230410, name: "Warframe", zh: "星际战甲", year: 2013, genres: ["射击", "ARPG"], minCpu: 36, minGpu: 24, minRam: 4, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 238960, name: "Path of Exile", zh: "流放之路", year: 2013, genres: ["ARPG"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: true, linux: false }, free: true },
+  { id: 1599340, name: "Lost Ark", zh: "命运方舟", year: 2022, genres: ["ARPG"], minCpu: 40, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 2139460, name: "Once Human", zh: "曾经的光", year: 2024, genres: ["生存", "射击"], minCpu: 54, minGpu: 42, minRam: 16, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 1097150, name: "Fall Guys", zh: "糖豆人", year: 2020, genres: ["休闲", "竞技"], minCpu: 40, minGpu: 22, minRam: 8, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 291550, name: "Brawlhalla", zh: "大乱斗", year: 2017, genres: ["休闲", "竞技"], minCpu: 20, minGpu: 8, minRam: 2, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 386180, name: "Crossout", zh: "创世战车", year: 2017, genres: ["射击", "模拟"], minCpu: 30, minGpu: 14, minRam: 4, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 304930, name: "Unturned", zh: "未转变者", year: 2017, genres: ["生存", "休闲"], minCpu: 30, minGpu: 14, minRam: 4, platforms: { win: true, mac: true, linux: true }, free: true },
+  { id: 1665460, name: "eFootball", zh: "实况足球", year: 2021, genres: ["体育", "竞技"], minCpu: 40, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false }, free: true },
+  { id: 438100, name: "VRChat", zh: "VR聊天室", year: 2017, genres: ["休闲", "沙盒"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false }, vr: true, free: true },
+  { id: 761890, name: "Albion Online", zh: "阿尔比恩", year: 2017, genres: ["ARPG", "沙盒"], minCpu: 36, minGpu: 20, minRam: 4, platforms: { win: true, mac: true, linux: true }, free: true },
+  { id: 1343400, name: "Old School RuneScape", zh: "老派江湖", year: 2020, genres: ["ARPG", "休闲"], minCpu: 10, minGpu: 4, minRam: 1, platforms: { win: true, mac: true, linux: false }, free: true },
+
+  /* —— 热门 3A / 动作 —— */
+  { id: 1245620, name: "ELDEN RING", zh: "艾尔登法环", year: 2022, genres: ["ARPG", "魂系", "开放世界"], minCpu: 50, minGpu: 46, minRam: 12, platforms: { win: true, mac: false, linux: false } },
+  { id: 1086940, name: "Baldur's Gate 3", zh: "博德之门3", year: 2023, genres: ["ARPG", "策略"], minCpu: 58, minGpu: 42, minRam: 8, platforms: { win: true, mac: true, linux: false } },
+  { id: 2358720, name: "Black Myth: Wukong", zh: "黑神话：悟空", year: 2024, genres: ["动作", "ARPG"], minCpu: 60, minGpu: 48, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 1091500, name: "Cyberpunk 2077", zh: "赛博朋克2077", year: 2020, genres: ["ARPG", "开放世界", "射击"], minCpu: 58, minGpu: 42, minRam: 12, platforms: { win: true, mac: false, linux: false } },
+  { id: 271590, name: "Grand Theft Auto V", zh: "侠盗猎车手5", year: 2015, genres: ["动作", "开放世界"], minCpu: 40, minGpu: 16, minRam: 4, platforms: { win: true, mac: false, linux: false } },
+  { id: 1174180, name: "Red Dead Redemption 2", zh: "荒野大镖客：救赎2", year: 2019, genres: ["动作", "开放世界"], minCpu: 50, minGpu: 40, minRam: 12, platforms: { win: true, mac: false, linux: false } },
+  { id: 582010, name: "Monster Hunter: World", zh: "怪物猎人：世界", year: 2018, genres: ["动作", "合作"], minCpu: 44, minGpu: 32, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 814380, name: "Sekiro: Shadows Die Twice", zh: "只狼：影逝二度", year: 2019, genres: ["动作", "魂系"], minCpu: 40, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 374320, name: "DARK SOULS III", zh: "黑暗之魂3", year: 2016, genres: ["动作", "魂系"], minCpu: 38, minGpu: 28, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1627720, name: "Lies of P", zh: "匹诺曹的谎言", year: 2023, genres: ["动作", "魂系"], minCpu: 52, minGpu: 40, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 1325200, name: "Wo Long: Fallen Dynasty", zh: "卧龙：苍天陨落", year: 2023, genres: ["动作", "魂系"], minCpu: 54, minGpu: 42, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 2050650, name: "Resident Evil 4", zh: "生化危机4 重制版", year: 2023, genres: ["动作", "恐怖"], minCpu: 58, minGpu: 46, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 1196590, name: "Resident Evil Village", zh: "生化危机8：村庄", year: 2021, genres: ["动作", "恐怖"], minCpu: 50, minGpu: 42, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 2256430, name: "Alan Wake 2", zh: "心灵杀手2", year: 2023, genres: ["动作", "恐怖"], minCpu: 62, minGpu: 56, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 870780, name: "Control", zh: "控制", year: 2019, genres: ["动作", "冒险"], minCpu: 50, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 782330, name: "DOOM Eternal", zh: "毁灭战士：永恒", year: 2020, genres: ["射击", "动作"], minCpu: 48, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1593500, name: "God of War", zh: "战神", year: 2022, genres: ["动作", "冒险"], minCpu: 48, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1888930, name: "The Last of Us Part I", zh: "最后生还者 第一部", year: 2023, genres: ["动作", "冒险"], minCpu: 60, minGpu: 46, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 2215430, name: "Ghost of Tsushima", zh: "对马岛之魂", year: 2024, genres: ["动作", "开放世界"], minCpu: 58, minGpu: 46, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 1850570, name: "Death Stranding", zh: "死亡搁浅", year: 2020, genres: ["动作", "开放世界"], minCpu: 48, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1243830, name: "Hogwarts Legacy", zh: "霍格沃茨之遗", year: 2023, genres: ["ARPG", "开放世界"], minCpu: 58, minGpu: 46, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 1716740, name: "Starfield", zh: "星空", year: 2023, genres: ["ARPG", "开放世界"], minCpu: 60, minGpu: 48, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 534380, name: "Dying Light 2", zh: "消逝的光芒2", year: 2022, genres: ["动作", "开放世界"], minCpu: 50, minGpu: 40, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 489830, name: "The Elder Scrolls V: Skyrim SE", zh: "上古卷轴5：天际", year: 2016, genres: ["ARPG", "开放世界"], minCpu: 38, minGpu: 26, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 292030, name: "The Witcher 3: Wild Hunt", zh: "巫师3：狂猎", year: 2015, genres: ["ARPG", "开放世界"], minCpu: 44, minGpu: 30, minRam: 6, platforms: { win: true, mac: false, linux: false } },
+  { id: 524220, name: "NieR: Automata", zh: "尼尔：机械纪元", year: 2017, genres: ["动作", "ARPG"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1235140, name: "Yakuza: Like a Dragon", zh: "如龙7", year: 2020, genres: ["动作", "ARPG"], minCpu: 50, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1687950, name: "Persona 5 Royal", zh: "女神异闻录5 皇家版", year: 2022, genres: ["ARPG", "策略"], minCpu: 48, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1446780, name: "Monster Hunter Rise", zh: "怪物猎人：崛起", year: 2022, genres: ["动作", "合作"], minCpu: 48, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+
+  /* —— 合作 / 派对 / 独立 —— */
+  { id: 1426210, name: "It Takes Two", zh: "双人成行", year: 2021, genres: ["合作", "冒险", "平台"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 448510, name: "Overcooked! 2", zh: "胡闹厨房2", year: 2018, genres: ["休闲", "合作"], minCpu: 30, minGpu: 14, minRam: 4, platforms: { win: true, mac: true, linux: true } },
+  { id: 550, name: "Left 4 Dead 2", zh: "求生之路2", year: 2009, genres: ["射击", "合作"], minCpu: 20, minGpu: 10, minRam: 2, platforms: { win: true, mac: true, linux: true }, free: true },
+  { id: 945360, name: "Among Us", zh: "在我们之中", year: 2018, genres: ["休闲", "合作"], minCpu: 20, minGpu: 6, minRam: 2, platforms: { win: true, mac: true, linux: false } },
+  { id: 837470, name: "Untitled Goose Game", zh: "捣蛋鹅", year: 2019, genres: ["休闲", "独立"], minCpu: 28, minGpu: 12, minRam: 4, platforms: { win: true, mac: true, linux: false } },
+  { id: 4000, name: "Garry's Mod", zh: "盖瑞模组", year: 2006, genres: ["沙盒", "休闲"], minCpu: 26, minGpu: 10, minRam: 2, platforms: { win: true, mac: true, linux: true } },
+  { id: 413150, name: "Stardew Valley", zh: "星露谷物语", year: 2016, genres: ["模拟", "独立", "休闲"], minCpu: 20, minGpu: 8, minRam: 2, platforms: { win: true, mac: true, linux: true } },
+  { id: 105600, name: "Terraria", zh: "泰拉瑞亚", year: 2011, genres: ["沙盒", "独立", "生存"], minCpu: 16, minGpu: 6, minRam: 2, platforms: { win: true, mac: true, linux: true } },
+  { id: 620, name: "Portal 2", zh: "传送门2", year: 2011, genres: ["平台", "休闲"], minCpu: 22, minGpu: 8, minRam: 2, platforms: { win: true, mac: true, linux: true } },
+  { id: 220, name: "Half-Life 2", zh: "半条命2", year: 2004, genres: ["射击", "动作"], minCpu: 14, minGpu: 5, minRam: 2, platforms: { win: true, mac: true, linux: true } },
+  { id: 1145360, name: "Hades", zh: "黑帝斯", year: 2020, genres: ["动作", "独立"], minCpu: 34, minGpu: 24, minRam: 4, platforms: { win: true, mac: true, linux: true } },
+  { id: 367520, name: "Hollow Knight", zh: "空洞骑士", year: 2017, genres: ["平台", "独立"], minCpu: 30, minGpu: 14, minRam: 4, platforms: { win: true, mac: true, linux: true } },
+  { id: 646570, name: "Slay the Spire", zh: "杀戮尖塔", year: 2019, genres: ["策略", "独立"], minCpu: 30, minGpu: 12, minRam: 4, platforms: { win: true, mac: true, linux: true } },
+  { id: 1794680, name: "Vampire Survivors", zh: "吸血鬼幸存者", year: 2022, genres: ["休闲", "独立"], minCpu: 24, minGpu: 10, minRam: 4, platforms: { win: true, mac: true, linux: true } },
+  { id: 387290, name: "Ori and the Blind Forest", zh: "精灵与森林", year: 2015, genres: ["平台", "独立"], minCpu: 30, minGpu: 16, minRam: 4, platforms: { win: true, mac: false, linux: false } },
+  { id: 504230, name: "Celeste", zh: "蔚蓝", year: 2018, genres: ["平台", "独立"], minCpu: 26, minGpu: 10, minRam: 2, platforms: { win: true, mac: true, linux: true } },
+  { id: 268910, name: "Cuphead", zh: "茶杯头", year: 2017, genres: ["平台", "独立"], minCpu: 30, minGpu: 14, minRam: 4, platforms: { win: true, mac: true, linux: false } },
+  { id: 460950, name: "Katana ZERO", zh: "武士零", year: 2019, genres: ["动作", "独立"], minCpu: 28, minGpu: 12, minRam: 4, platforms: { win: true, mac: true, linux: false } },
+  { id: 632470, name: "Disco Elysium", zh: "极乐迪斯科", year: 2019, genres: ["ARPG", "独立"], minCpu: 34, minGpu: 14, minRam: 4, platforms: { win: true, mac: true, linux: false } },
+  { id: 753640, name: "Outer Wilds", zh: "星际拓荒", year: 2019, genres: ["冒险", "独立"], minCpu: 40, minGpu: 30, minRam: 4, platforms: { win: true, mac: false, linux: false } },
+  { id: 435150, name: "Divinity: Original Sin 2", zh: "神界：原罪2", year: 2017, genres: ["ARPG", "策略"], minCpu: 48, minGpu: 34, minRam: 8, platforms: { win: true, mac: true, linux: false } },
+
+  /* —— 生存 / 沙盒 / 恐怖 —— */
+  { id: 1623730, name: "Palworld", zh: "幻兽帕鲁", year: 2024, genres: ["生存", "沙盒", "合作"], minCpu: 56, minGpu: 46, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 252490, name: "Rust", zh: "腐蚀", year: 2018, genres: ["生存", "竞技"], minCpu: 44, minGpu: 36, minRam: 10, platforms: { win: true, mac: false, linux: false } },
+  { id: 221100, name: "DayZ", zh: "僵尸末日", year: 2018, genres: ["生存", "射击"], minCpu: 40, minGpu: 28, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 892970, name: "Valheim", zh: "英灵神殿", year: 2021, genres: ["生存", "合作"], minCpu: 44, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: true } },
+  { id: 242760, name: "The Forest", zh: "森林", year: 2018, genres: ["生存", "恐怖"], minCpu: 40, minGpu: 30, minRam: 4, platforms: { win: true, mac: false, linux: false } },
+  { id: 1326470, name: "Sons Of The Forest", zh: "森林之子", year: 2023, genres: ["生存", "恐怖"], minCpu: 52, minGpu: 42, minRam: 12, platforms: { win: true, mac: false, linux: false } },
+  { id: 2399830, name: "ARK: Survival Ascended", zh: "方舟：生存飞升", year: 2023, genres: ["生存", "沙盒"], minCpu: 62, minGpu: 58, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 264710, name: "Subnautica", zh: "深海迷航", year: 2018, genres: ["生存", "独立"], minCpu: 36, minGpu: 24, minRam: 4, platforms: { win: true, mac: true, linux: false } },
+  { id: 648800, name: "Raft", zh: "木筏求生", year: 2022, genres: ["生存", "合作"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 275850, name: "No Man's Sky", zh: "无人深空", year: 2016, genres: ["模拟", "开放世界", "生存"], minCpu: 40, minGpu: 30, minRam: 8, platforms: { win: true, mac: true, linux: false } },
+  { id: 381210, name: "Dead by Daylight", zh: "黎明杀机", year: 2016, genres: ["恐怖", "竞技"], minCpu: 40, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 739630, name: "Phasmophobia", zh: "恐鬼症", year: 2020, genres: ["恐怖", "合作"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1966720, name: "Lethal Company", zh: "致命公司", year: 2023, genres: ["恐怖", "合作"], minCpu: 36, minGpu: 24, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1361210, name: "Content Warning", zh: "内容警告", year: 2024, genres: ["恐怖", "合作"], minCpu: 36, minGpu: 24, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 427520, name: "Factorio", zh: "异星工厂", year: 2020, genres: ["模拟", "策略"], minCpu: 36, minGpu: 16, minRam: 4, platforms: { win: true, mac: true, linux: true } },
+  { id: 526870, name: "Satisfactory", zh: "幸福工厂", year: 2024, genres: ["模拟", "沙盒"], minCpu: 50, minGpu: 40, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1366540, name: "Dyson Sphere Program", zh: "戴森球计划", year: 2021, genres: ["模拟", "策略"], minCpu: 44, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+
+  /* —— 竞技 / 射击 / 格斗 —— */
+  { id: 976730, name: "Halo: The Master Chief Collection", zh: "光环：士官长合集", year: 2019, genres: ["射击"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1172620, name: "Sea of Thieves", zh: "盗贼之海", year: 2020, genres: ["冒险", "合作"], minCpu: 44, minGpu: 36, minRam: 4, platforms: { win: true, mac: false, linux: false } },
+  { id: 548430, name: "Deep Rock Galactic", zh: "深岩银河", year: 2020, genres: ["射击", "合作"], minCpu: 44, minGpu: 34, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 553850, name: "HELLDIVERS 2", zh: "绝地潜兵2", year: 2024, genres: ["射击", "合作"], minCpu: 52, minGpu: 42, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 359550, name: "Rainbow Six Siege", zh: "彩虹六号：围攻", year: 2015, genres: ["射击", "竞技"], minCpu: 40, minGpu: 30, minRam: 6, platforms: { win: true, mac: false, linux: false } },
+  { id: 1364780, name: "Street Fighter 6", zh: "街霸6", year: 2023, genres: ["竞技", "动作"], minCpu: 52, minGpu: 40, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1778820, name: "TEKKEN 8", zh: "铁拳8", year: 2024, genres: ["竞技", "动作"], minCpu: 56, minGpu: 46, minRam: 16, platforms: { win: true, mac: false, linux: false } },
+  { id: 2878800, name: "NBA 2K25", zh: "NBA 2K25", year: 2024, genres: ["体育", "竞技"], minCpu: 54, minGpu: 46, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+
+  /* —— 模拟 / 竞速 / 策略 —— */
+  { id: 1551360, name: "Forza Horizon 5", zh: "极限竞速：地平线5", year: 2021, genres: ["竞速", "开放世界"], minCpu: 56, minGpu: 44, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 244210, name: "Assetto Corsa", zh: "神力科莎", year: 2014, genres: ["竞速", "模拟"], minCpu: 34, minGpu: 22, minRam: 4, platforms: { win: true, mac: false, linux: false } },
+  { id: 284160, name: "BeamNG.drive", zh: "光束骑士", year: 2015, genres: ["竞速", "模拟"], minCpu: 40, minGpu: 26, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 227300, name: "Euro Truck Simulator 2", zh: "欧洲卡车模拟2", year: 2012, genres: ["模拟", "休闲"], minCpu: 26, minGpu: 14, minRam: 4, platforms: { win: true, mac: true, linux: true } },
+  { id: 257910, name: "Cities: Skylines", zh: "城市：天际线", year: 2015, genres: ["模拟", "策略"], minCpu: 36, minGpu: 22, minRam: 6, platforms: { win: true, mac: true, linux: true } },
+  { id: 703080, name: "Planet Zoo", zh: "动物园之星", year: 2019, genres: ["模拟"], minCpu: 48, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 1222670, name: "The Sims 4", zh: "模拟人生4", year: 2020, genres: ["模拟", "休闲"], minCpu: 34, minGpu: 20, minRam: 4, platforms: { win: true, mac: true, linux: false }, free: true },
+  { id: 289070, name: "Sid Meier's Civilization VI", zh: "文明6", year: 2016, genres: ["策略"], minCpu: 40, minGpu: 30, minRam: 4, platforms: { win: true, mac: true, linux: false } },
+  { id: 779340, name: "Total War: THREE KINGDOMS", zh: "全面战争：三国", year: 2019, genres: ["策略"], minCpu: 50, minGpu: 36, minRam: 6, platforms: { win: true, mac: true, linux: true } },
+  { id: 1466860, name: "Age of Empires IV", zh: "帝国时代4", year: 2021, genres: ["策略"], minCpu: 48, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false } },
+  { id: 2252570, name: "Football Manager 2024", zh: "足球经理2024", year: 2023, genres: ["策略", "体育"], minCpu: 40, minGpu: 18, minRam: 4, platforms: { win: true, mac: true, linux: false } },
+
+  /* —— VR —— */
+  { id: 546560, name: "Half-Life: Alyx", zh: "半条命：爱莉克斯", year: 2020, genres: ["射击", "动作"], minCpu: 52, minGpu: 42, minRam: 12, platforms: { win: true, mac: false, linux: true }, vr: true },
+  { id: 620980, name: "Beat Saber", zh: "节奏光剑", year: 2019, genres: ["休闲", "竞技"], minCpu: 44, minGpu: 30, minRam: 8, platforms: { win: true, mac: false, linux: false }, vr: true },
+  { id: 555160, name: "Pavlov VR", zh: "帕夫洛夫", year: 2017, genres: ["射击", "竞技"], minCpu: 50, minGpu: 40, minRam: 8, platforms: { win: true, mac: false, linux: true }, vr: true },
+  { id: 629730, name: "Blade and Sorcery", zh: "刀锋与魔法", year: 2018, genres: ["动作", "沙盒"], minCpu: 44, minGpu: 36, minRam: 8, platforms: { win: true, mac: false, linux: false }, vr: true },
 ];
-
-export const GAMES: Game[] = RAW.map((r) => {
-  const [id, name, zh, year, g, minCpu, minGpu, minRam, osStr, flags] = r;
-  return {
-    id,
-    name,
-    zh,
-    year,
-    genres: g.split("|"),
-    minCpu,
-    minGpu,
-    minRam,
-    os: {
-      win: osStr.includes("W"),
-      mac: osStr.includes("M"),
-      linux: osStr.includes("L"),
-    },
-    w10: flags?.includes("10") || undefined,
-    vr: flags?.includes("VR") || undefined,
-  };
-});
-
-export const ALL_GENRES = Array.from(
-  new Set(GAMES.flatMap((g) => g.genres))
-).sort((a, b) => a.localeCompare(b, "zh-CN"));

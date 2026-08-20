@@ -21,17 +21,20 @@ export interface Fit {
   bottleneck: "cpu" | "gpu" | "ram" | null;
 }
 
+/** Win7/8.1 大致能运行的游戏年份上限（此后的新游戏普遍要求 Win10+） */
+const WIN7_MAX_YEAR = 2016;
+
 export function osSupported(game: Game, os: OsId): boolean {
   switch (os) {
     case "win11":
     case "win10":
-      return game.os.win;
+      return game.platforms.win;
     case "win7":
-      return game.os.win && !game.w10;
+      return game.platforms.win && game.year <= WIN7_MAX_YEAR;
     case "mac":
-      return game.os.mac;
+      return game.platforms.mac;
     case "linux":
-      return game.os.linux;
+      return game.platforms.linux;
   }
 }
 
@@ -48,7 +51,7 @@ export function evaluate(build: Build, game: Game): Fit | null {
   let factor = Math.min(cpuR, gpuR);
   if (!ramOk) factor *= 0.62; // 内存不足会显著拖累实际体验
 
-  let bottleneck: Fit["bottleneck"] = null;
+  let bottleneck: Fit["bottleneck"];
   if (!ramOk) bottleneck = "ram";
   else if (cpuR < gpuR) bottleneck = "cpu";
   else bottleneck = "gpu";
@@ -113,17 +116,25 @@ export const LEVEL_META: Record<
 
 /** 整机段位 */
 export function machineGrade(cpuScore: number, gpuScore: number) {
-  const v = cpuScore / 320 + gpuScore / 640; // 双 1 即为“甜品基准线”
-  if (v < 0.5) return { grade: "入门办公", tag: "OFFICE", tone: "text-ink-300", advice: "适合网页办公与轻度网游，升级显卡收益最明显。" };
-  if (v < 1) return { grade: "网游畅玩", tag: "ESPORT", tone: "text-teal-core", advice: "主流电竞网游毫无压力，3A 大作需降低画质。" };
-  if (v < 1.6) return { grade: "甜品进阶", tag: "SWEET SPOT", tone: "text-amber-core", advice: "1080P 高画质畅玩绝大多数游戏。" };
+  const v = cpuScore / 320 + gpuScore / 640;
+  if (v < 0.35) return { grade: "上古亮机", tag: "RETRO", tone: "text-ink-300", advice: "以老游戏、独立小品和经典网游为主，新 3A 基本无缘。" };
+  if (v < 0.7) return { grade: "入门办公", tag: "OFFICE", tone: "text-ink-300", advice: "适合网页办公与轻度网游，升级显卡收益最明显。" };
+  if (v < 1.1) return { grade: "网游畅玩", tag: "ESPORT", tone: "text-teal-core", advice: "主流电竞网游毫无压力，3A 大作需降低画质。" };
+  if (v < 1.7) return { grade: "甜品进阶", tag: "SWEET SPOT", tone: "text-amber-core", advice: "1080P 高画质畅玩绝大多数游戏。" };
   if (v < 2.4) return { grade: "高端发烧", tag: "ENTHUSIAST", tone: "text-amber-hi", advice: "2K 分辨率全开画质，4K 中画质可战。" };
   return { grade: "旗舰极致", tag: "FLAGSHIP", tone: "text-ok", advice: "4K 全高画质 + 高刷，通吃当前所有游戏。" };
 }
 
 export function upgradeHint(build: Build): string | null {
   if (!build.cpu || !build.gpu || build.ram == null) return null;
-  const hints: string[] = [];
-  if (build.ram < 16) hints.push(`内存加到 16GB（当前 ${build.ram}GB）能让不少新游戏跨过门槛`);
-  return hints[0] ?? null;
+  if (build.ram < 16 && build.gpu.score >= 60) {
+    return `内存加到 16GB（当前 ${build.ram}GB）能让不少新游戏跨过门槛`;
+  }
+  if (build.gpu.score < build.cpu.score * 0.55) {
+    return "显卡明显拖后腿，优先升级显卡";
+  }
+  if (build.cpu.score < build.gpu.score * 0.5) {
+    return "CPU 偏老，升级处理器可缓解高帧率瓶颈";
+  }
+  return null;
 }

@@ -5,12 +5,18 @@ import {
 } from "../lib/match";
 import { OS_OPTIONS, cpuTierLabel, gpuTierLabel } from "../data/hardware";
 import {
-  ArrowLeft, ExternalIcon, GaugeIcon, RestartIcon, SteamIcon, VrIcon, WarnIcon,
+  ArrowLeft, ExternalIcon, GaugeIcon, PlusIcon, RestartIcon, SteamIcon, TrashIcon, VrIcon, WarnIcon,
 } from "./icons";
 
 /* ---------- 游戏卡片 ---------- */
 
-function GameCard({ fit, delay }: { fit: Fit; delay: number }) {
+function GameCard({
+  fit, delay, onDeleteCustom,
+}: {
+  fit: Fit;
+  delay: number;
+  onDeleteCustom?: (id: number) => void;
+}) {
   const [imgErr, setImgErr] = useState(false);
   const meta = LEVEL_META[fit.level];
   const fpsPct = Math.min(100, Math.round((fit.estFps / 120) * 100));
@@ -47,11 +53,23 @@ function GameCard({ fit, delay }: { fit: Fit; delay: number }) {
         <span className={`absolute left-2 top-2 rounded-sm border px-2 py-0.5 font-display text-[11px] font-bold tracking-wider ${meta.bg} ${meta.color} backdrop-blur-sm`}>
           {meta.label}
         </span>
-        {fit.game.vr && (
-          <span className="absolute right-2 top-2 flex items-center gap-1 rounded-sm border border-ink-600 bg-ink-900/80 px-1.5 py-0.5 text-[10px] text-ink-300 backdrop-blur-sm">
-            <VrIcon className="h-3 w-3" /> VR
-          </span>
-        )}
+        <div className="absolute right-2 top-2 flex items-center gap-1.5">
+          {fit.game.free && (
+            <span className="rounded-sm border border-ok/40 bg-ink-900/80 px-1.5 py-0.5 text-[10px] font-bold text-ok backdrop-blur-sm">
+              免费
+            </span>
+          )}
+          {fit.game.custom && (
+            <span className="rounded-sm border border-teal-core/50 bg-ink-900/80 px-1.5 py-0.5 text-[10px] font-bold text-teal-core backdrop-blur-sm">
+              我添加的
+            </span>
+          )}
+          {fit.game.vr && (
+            <span className="flex items-center gap-1 rounded-sm border border-ink-600 bg-ink-900/80 px-1.5 py-0.5 text-[10px] text-ink-300 backdrop-blur-sm">
+              <VrIcon className="h-3 w-3" /> VR
+            </span>
+          )}
+        </div>
         <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between gap-2">
           <div className="min-w-0">
             <h3 className="truncate text-sm font-black leading-tight text-white drop-shadow">{fit.game.zh}</h3>
@@ -64,8 +82,8 @@ function GameCard({ fit, delay }: { fit: Fit; delay: number }) {
       {/* 数据区 */}
       <div className="px-3.5 py-3">
         <div className="flex items-center justify-between text-[11px] text-ink-400">
-          <span>{fit.game.genres.join(" · ")}</span>
-          <span className={`font-display text-sm font-bold ${meta.color}`}>≈ {fit.estFps} FPS</span>
+          <span className="truncate">{fit.game.genres.join(" · ")}</span>
+          <span className={`font-display ml-2 shrink-0 text-sm font-bold ${meta.color}`}>≈ {fit.estFps} FPS</span>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-750">
           <div
@@ -77,16 +95,27 @@ function GameCard({ fit, delay }: { fit: Fit; delay: number }) {
           <span className={`truncate ${fit.ramOk ? "text-ink-400" : "text-warn"}`}>
             {fit.ramOk ? meta.desc : `内存不足（需 ${fit.game.minRam}GB）`}
           </span>
-          <a
-            href={`https://store.steampowered.com/app/${fit.game.id}/`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex shrink-0 items-center gap-1.5 rounded-sm border border-ink-600 bg-ink-800 px-2.5 py-1.5 font-display text-[11px] font-semibold text-steam transition-colors hover:border-steam/60 hover:bg-steam/10"
-          >
-            <SteamIcon className="h-3.5 w-3.5" />
-            Steam
-            <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
-          </a>
+          <span className="flex shrink-0 items-center gap-1.5">
+            {fit.game.custom && onDeleteCustom && (
+              <button
+                onClick={() => onDeleteCustom(fit.game.id)}
+                title="从游戏库移除"
+                className="rounded-sm border border-ink-700 bg-ink-800 p-1.5 text-ink-500 transition-colors hover:border-bad/50 hover:text-bad"
+              >
+                <TrashIcon className="h-3 w-3" />
+              </button>
+            )}
+            <a
+              href={`https://store.steampowered.com/app/${fit.game.id}/`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-sm border border-ink-600 bg-ink-800 px-2.5 py-1.5 font-display text-[11px] font-semibold text-steam transition-colors hover:border-steam/60 hover:bg-steam/10"
+            >
+              <SteamIcon className="h-3.5 w-3.5" />
+              Steam
+              <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
+            </a>
+          </span>
         </div>
       </div>
     </article>
@@ -134,7 +163,7 @@ function ScanOverlay({ done }: { done: () => void }) {
 /* ---------- 结果主体 ---------- */
 
 export default function Results({
-  build, playable, rejected, totalSupported, onBack, onRestart,
+  build, playable, rejected, totalSupported, onBack, onRestart, onAddGame, onDeleteCustomGame,
 }: {
   build: Build;
   playable: Fit[];
@@ -142,6 +171,8 @@ export default function Results({
   totalSupported: number;
   onBack: () => void;
   onRestart: () => void;
+  onAddGame: () => void;
+  onDeleteCustomGame: (id: number) => void;
 }) {
   const [scanned, setScanned] = useState(false);
   const [levelTab, setLevelTab] = useState<"all" | "perfect" | "smooth" | "low">("all");
@@ -156,6 +187,9 @@ export default function Results({
     low: playable.filter((f) => f.level === "low").length,
   }), [playable]);
 
+  const freeCount = useMemo(() => playable.filter((f) => f.game.free).length, [playable]);
+  const customCount = useMemo(() => playable.filter((f) => f.game.custom).length, [playable]);
+
   const genres = useMemo(
     () => ["全部", ...ALL_GENRES.filter((g) => playable.some((f) => f.game.genres.includes(g)))],
     [playable]
@@ -164,7 +198,8 @@ export default function Results({
   const list = useMemo(() => {
     let arr = playable;
     if (levelTab !== "all") arr = arr.filter((f) => f.level === levelTab);
-    if (genre !== "全部") arr = arr.filter((f) => f.game.genres.includes(genre));
+    if (genre === "免费") arr = arr.filter((f) => f.game.free);
+    else if (genre !== "全部") arr = arr.filter((f) => f.game.genres.includes(genre));
     if (sort === "year") arr = [...arr].sort((a, b) => b.game.year - a.game.year);
     else if (sort === "name") arr = [...arr].sort((a, b) => a.game.zh.localeCompare(b.game.zh, "zh-CN"));
     return arr;
@@ -219,11 +254,16 @@ export default function Results({
                 <dt className="text-[11px] text-ink-500">勉强可玩</dt>
                 <dd className="font-display text-xl font-bold text-warn">{counts.low}</dd>
               </div>
+              <div>
+                <dt className="text-[11px] text-ink-500">其中免费</dt>
+                <dd className="font-display text-xl font-bold text-ink-100">{freeCount}</dd>
+              </div>
             </dl>
           </div>
           <p className="mt-3 text-xs leading-relaxed text-ink-400">
             {grade.advice}
             {hint && <span className="text-amber-core"> · 升级建议：{hint}。</span>}
+            {customCount > 0 && <span className="text-teal-core"> · 已包含你联网添加的 {customCount} 款游戏。</span>}
           </p>
         </div>
 
@@ -258,10 +298,17 @@ export default function Results({
               }`}
             >
               {t.label}
-              <span className={`ml-1.5 font-display ${levelTab === t.key ? "opacity-70" : "opacity-60"}`}>{counts[t.key]}</span>
+              <span className={`font-display ml-1.5 ${levelTab === t.key ? "opacity-70" : "opacity-60"}`}>{counts[t.key]}</span>
             </button>
           ))}
         </div>
+        <button
+          onClick={onAddGame}
+          className="flex items-center gap-1.5 rounded-sm border border-dashed border-teal-core/50 px-3 py-2 text-xs font-bold text-teal-core transition-colors hover:bg-teal-core/[0.08]"
+        >
+          <PlusIcon className="h-3.5 w-3.5" />
+          联网添加游戏
+        </button>
         <div className="ml-auto flex items-center gap-2 text-xs text-ink-500">
           排序
           <select
@@ -277,6 +324,16 @@ export default function Results({
       </div>
 
       <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
+        <button
+          onClick={() => setGenre("免费")}
+          className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold transition-colors ${
+            genre === "免费"
+              ? "border-ok bg-ok/15 text-ok"
+              : "border-ok/40 bg-ink-850 text-ok/80 hover:border-ok hover:text-ok"
+          }`}
+        >
+          免费{freeCount > 0 && <span className="font-display ml-1 opacity-70">{freeCount}</span>}
+        </button>
         {genres.map((g) => (
           <button
             key={g}
@@ -296,14 +353,20 @@ export default function Results({
       {list.length > 0 ? (
         <div key={`${levelTab}-${genre}-${sort}`} className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {list.map((f, i) => (
-            <GameCard key={f.game.id} fit={f} delay={Math.min(i, 12) * 45} />
+            <GameCard key={f.game.id} fit={f} delay={Math.min(i, 12) * 45} onDeleteCustom={onDeleteCustomGame} />
           ))}
         </div>
       ) : (
         <div className="mt-5 rounded-sm border border-dashed border-ink-700 px-6 py-14 text-center">
           <WarnIcon className="mx-auto h-8 w-8 text-warn" />
           <p className="mt-3 text-sm font-bold text-ink-100">这个组合下没有符合条件的游戏</p>
-          <p className="mt-1 text-xs text-ink-500">试试切换筛选条件，或返回修改硬件配置</p>
+          <p className="mt-1 text-xs text-ink-500">试试切换筛选条件、返回修改硬件配置，或联网添加你想查的游戏</p>
+          <button
+            onClick={onAddGame}
+            className="mt-4 inline-flex items-center gap-2 rounded-sm border border-teal-core/50 bg-teal-core/[0.08] px-4 py-2.5 text-sm font-bold text-teal-core transition-colors hover:bg-teal-core/[0.16]"
+          >
+            <PlusIcon className="h-4 w-4" /> 联网添加游戏
+          </button>
         </div>
       )}
 
@@ -324,9 +387,10 @@ export default function Results({
             <ul className="grid gap-x-6 border-t border-ink-800 px-5 py-4 sm:grid-cols-2">
               {rejected.map((f) => (
                 <li key={f.game.id} className="flex items-center justify-between gap-3 border-b border-ink-800/60 py-2 text-sm last:border-0 sm:[&:nth-last-child(2)]:border-0">
-                  <span className="truncate text-ink-400">
-                    {f.game.zh}
-                    {f.game.vr && <span className="ml-1.5 text-[10px] text-ink-600">VR</span>}
+                  <span className="flex min-w-0 items-center gap-2 text-ink-400">
+                    <span className="truncate">{f.game.zh}</span>
+                    {f.game.free && <span className="shrink-0 text-[10px] text-ok/70">免费</span>}
+                    {f.game.vr && <span className="shrink-0 text-[10px] text-ink-600">VR</span>}
                   </span>
                   <span className="shrink-0 text-[11px] text-ink-600">
                     约 {f.estFps} FPS · {!f.ramOk ? `内存需 ${f.game.minRam}GB` : "低于最低配置"}

@@ -1,11 +1,14 @@
-import { useMemo, useRef, useState } from "react";
-import { GAMES } from "./data/games";
-import { CPU_MODELS, GPU_MODELS, OS_OPTIONS } from "./data/hardware";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { GAMES, Game } from "./data/games";
+import {
+  CPU_MODELS, CUSTOM_GAMES_KEY, CUSTOM_HARDWARE_KEY, GPU_MODELS, OS_OPTIONS,
+} from "./data/hardware";
 import { Build, EMPTY_BUILD, evaluateAll, osSupported } from "./lib/match";
 import SpecPanel from "./components/SpecPanel";
 import Results from "./components/Results";
-import { StepOs, StepCpu, StepGpu, StepRam, StepShell } from "./components/Steps";
-import { ArrowRight, CheckIcon, LogoMark } from "./components/icons";
+import AddGameModal from "./components/AddGameModal";
+import { StepOs, StepCpu, StepGpu, StepRam, StepShell, HardwareItem } from "./components/Steps";
+import { ArrowRight, CheckIcon, LogoMark, PlusIcon } from "./components/icons";
 
 const STEP_META = [
   { label: "系统", en: "OS" },
@@ -13,6 +16,16 @@ const STEP_META = [
   { label: "显卡", en: "GPU" },
   { label: "内存", en: "RAM" },
 ];
+
+function load<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
 
 function Stepper({
   step, done, onJump,
@@ -57,7 +70,7 @@ function Stepper({
               </div>
               {isCur && (
                 <span className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden rounded-b-sm">
-                  <span className="block h-full w-2/5 animate-scan bg-amber-core" />
+                  <span className="animate-scan block h-full w-2/5 bg-amber-core" />
                 </span>
               )}
             </button>
@@ -72,7 +85,25 @@ export default function App() {
   const [view, setView] = useState<"wizard" | "result">("wizard");
   const [step, setStep] = useState(0);
   const [build, setBuild] = useState<Build>(EMPTY_BUILD);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const [customHardware, setCustomHardware] = useState<
+    (HardwareItem & { kind: "cpu" | "gpu" })[]
+  >(() => load(CUSTOM_HARDWARE_KEY, [] as (HardwareItem & { kind: "cpu" | "gpu" })[]));
+  const [customGames, setCustomGames] = useState<Game[]>(() =>
+    load(CUSTOM_GAMES_KEY, [] as Game[])
+  );
   const timer = useRef<number | null>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(CUSTOM_HARDWARE_KEY, JSON.stringify(customHardware)); } catch { /* 忽略配额错误 */ }
+  }, [customHardware]);
+  useEffect(() => {
+    try { localStorage.setItem(CUSTOM_GAMES_KEY, JSON.stringify(customGames)); } catch { /* 忽略配额错误 */ }
+  }, [customGames]);
+
+  const allGames = useMemo(() => [...GAMES, ...customGames], [customGames]);
+  const existingIds = useMemo(() => new Set(allGames.map((g) => g.id)), [allGames]);
 
   const advance = (to: number) => {
     if (timer.current) window.clearTimeout(timer.current);
@@ -85,40 +116,43 @@ export default function App() {
     setStep(i);
   };
 
-  const pickOs = (os: Build["os"]) => {
-    setBuild((b) => ({ ...b, os }));
-    advance(1);
-  };
-  const pickCpu = (cpu: NonNullable<Build["cpu"]>) => {
-    setBuild((b) => ({ ...b, cpu }));
-    advance(2);
-  };
-  const pickGpu = (gpu: NonNullable<Build["gpu"]>) => {
-    setBuild((b) => ({ ...b, gpu }));
-    advance(3);
-  };
+  const pickOs = (os: Build["os"]) => { setBuild((b) => ({ ...b, os })); advance(1); };
+  const pickCpu = (cpu: HardwareItem) => { setBuild((b) => ({ ...b, cpu })); advance(2); };
+  const pickGpu = (gpu: HardwareItem) => { setBuild((b) => ({ ...b, gpu })); advance(3); };
   const pickRam = (ram: number) => setBuild((b) => ({ ...b, ram }));
+
+  const addCustomHardware = (kind: "cpu" | "gpu") => (item: HardwareItem) => {
+    setCustomHardware((cur) =>
+      [{ ...item, kind }, ...cur.filter((c) => !(c.name === item.name && c.kind === kind))].slice(0, 60)
+    );
+  };
+  const deleteCustomHardware = (kind: "cpu" | "gpu") => (name: string) =>
+    setCustomHardware((cur) => cur.filter((c) => !(c.name === name && c.kind === kind)));
+
+  const addCustomGame = (g: Game) => {
+    setCustomGames((cur) => [g, ...cur.filter((c) => c.id !== g.id)]);
+  };
+  const deleteCustomGame = (id: number) =>
+    setCustomGames((cur) => cur.filter((c) => c.id !== id));
 
   const done = [!!build.os, !!build.cpu, !!build.gpu, build.ram != null];
   const ready = done.every(Boolean);
 
   const result = useMemo(
-    () => (ready ? evaluateAll(build, GAMES) : null),
-    [ready, build]
+    () => (ready ? evaluateAll(build, allGames) : null),
+    [ready, build, allGames]
   );
-  const totalSupported = useMemo(() => {
-    const os = build.os;
-    return os ? GAMES.filter((g) => osSupported(g, os)).length : 0;
-  }, [build.os]);
+  const os = build.os;
+  const totalSupported = useMemo(
+    () => (os ? allGames.filter((g) => osSupported(g, os)).length : 0),
+    [os, allGames]
+  );
 
   const startScan = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
     setView("result");
   };
-  const backToEdit = () => {
-    setView("wizard");
-    setStep(0);
-  };
+  const backToEdit = () => { setView("wizard"); setStep(0); };
   const restart = () => {
     setBuild(EMPTY_BUILD);
     setStep(0);
@@ -130,7 +164,7 @@ export default function App() {
     <div className="bg-ambient relative min-h-screen">
       <div className="bg-grid pointer-events-none absolute inset-0" />
       {/* 顶部光线 */}
-      <div className="absolute inset-x-0 top-0 z-10 h-[3px] bg-gradient-to-r from-amber-deep via-amber-core to-teal-core animate-marquee-glow" />
+      <div className="animate-marquee-glow absolute inset-x-0 top-0 z-10 h-[3px] bg-gradient-to-r from-amber-deep via-amber-core to-teal-core" />
 
       <div className="relative z-[5] mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
         {/* 页头 */}
@@ -143,16 +177,27 @@ export default function App() {
                 <span className="font-display text-lg font-bold text-teal-core">CAN I PLAY</span>
               </h1>
               <p className="mt-1.5 text-xs text-ink-400">
-                四步录入你的电脑配置，立刻知道 Steam 上哪些游戏跑得动
+                四步录入配置，立刻知道 Steam 上哪些游戏跑得动
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4 font-display text-[11px] tracking-wider text-ink-500">
-            <span><b className="text-ink-300">{GAMES.length}</b> 款游戏</span>
-            <span className="h-3 w-px bg-ink-700" />
-            <span><b className="text-ink-300">{CPU_MODELS.length + GPU_MODELS.length}</b> 硬件样本</span>
-            <span className="h-3 w-px bg-ink-700" />
-            <span className="text-teal-core/80">MODEL v2.1</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="group flex items-center gap-2 rounded-sm border border-teal-core/50 bg-teal-core/[0.08] px-4 py-2.5 text-sm font-bold text-teal-core transition-all hover:-translate-y-0.5 hover:bg-teal-core/[0.16] hover:shadow-[0_8px_24px_-10px_rgba(61,220,211,0.5)]"
+            >
+              <PlusIcon className="h-4 w-4 transition-transform group-hover:rotate-90" />
+              联网添加游戏
+              {customGames.length > 0 && (
+                <span className="font-display rounded-sm bg-teal-core px-1.5 py-0.5 text-[10px] font-bold text-ink-950">
+                  {customGames.length}
+                </span>
+              )}
+            </button>
+            <div className="hidden font-display text-[11px] tracking-wider text-ink-500 md:block">
+              <div><b className="text-ink-300">{allGames.length}</b> 款游戏</div>
+              <div className="mt-0.5"><b className="text-ink-300">{CPU_MODELS.length + GPU_MODELS.length}</b> 硬件样本</div>
+            </div>
           </div>
         </header>
 
@@ -162,7 +207,7 @@ export default function App() {
             <SpecPanel build={build} step={step} view={view} onJump={(s) => { setView("wizard"); jumpTo(s); }} />
             {view === "wizard" && (
               <p className="mt-4 hidden px-1 text-[11px] leading-relaxed text-ink-600 lg:block">
-                点击已点亮的条目可随时回头修改。所有数据保存在本地页面，不会上传。
+                点击已点亮的条目可随时回头修改。自定义硬件与游戏保存在本机浏览器，不会上传。
               </p>
             )}
           </div>
@@ -176,6 +221,8 @@ export default function App() {
                 totalSupported={totalSupported}
                 onBack={backToEdit}
                 onRestart={restart}
+                onAddGame={() => setModalOpen(true)}
+                onDeleteCustomGame={deleteCustomGame}
               />
             ) : (
               <>
@@ -193,21 +240,31 @@ export default function App() {
                   {step === 1 && (
                     <StepShell
                       index={2} en="PROCESSOR" title="处理器（CPU）是哪款？"
-                      desc="选择最接近的型号即可，也可以直接按档位估算。"
+                      desc={`内置 ${CPU_MODELS.length} 款常见型号，列表里没有的可以手动添加任意型号。`}
                       hint="按下 Win + R 输入 dxdiag 回车，「系统」页会显示处理器型号；或打开任务管理器 → 性能 → CPU。"
-                      onBack={() => setStep(0)}
+                      onBack={() => jumpTo(0)}
                     >
-                      <StepCpu value={build.cpu} onPick={pickCpu} />
+                      <StepCpu
+                        value={build.cpu} onPick={pickCpu}
+                        customItems={customHardware.filter((c) => c.kind === "cpu")}
+                        onAddCustom={addCustomHardware("cpu")}
+                        onDeleteCustom={deleteCustomHardware("cpu")}
+                      />
                     </StepShell>
                   )}
                   {step === 2 && (
                     <StepShell
                       index={3} en="GRAPHICS CARD" title="显卡（GPU）是哪款？"
-                      desc="显卡是游戏性能的第一决定因素。笔记本请选择对应的独显型号。"
+                      desc={`内置 ${GPU_MODELS.length} 款显卡，从亮机卡到旗舰全覆盖；笔记本请选择对应的独显型号。`}
                       hint="右键桌面 → 打开「任务管理器」→ 性能 → GPU，可以看到显卡型号；或 Win + R 输入 dxdiag 查看「显示」页。"
-                      onBack={() => setStep(1)}
+                      onBack={() => jumpTo(1)}
                     >
-                      <StepGpu value={build.gpu} onPick={pickGpu} />
+                      <StepGpu
+                        value={build.gpu} onPick={pickGpu}
+                        customItems={customHardware.filter((c) => c.kind === "gpu")}
+                        onAddCustom={addCustomHardware("gpu")}
+                        onDeleteCustom={deleteCustomHardware("gpu")}
+                      />
                     </StepShell>
                   )}
                   {step === 3 && (
@@ -215,7 +272,7 @@ export default function App() {
                       index={4} en="MEMORY" title="内存有多大？"
                       desc="近年新游戏普遍要求 16GB，内存不足会明显卡顿。"
                       hint="在「此电脑」上右键 → 属性，「已安装的内存」一栏即是总容量；任务管理器 → 性能 → 内存也可以查看。"
-                      onBack={() => setStep(2)}
+                      onBack={() => jumpTo(2)}
                     >
                       <StepRam value={build.ram} onPick={pickRam} />
                     </StepShell>
@@ -232,6 +289,7 @@ export default function App() {
                         </div>
                         <div className="mt-0.5 text-xs text-ink-400">
                           即将对 {totalSupported} 款支持该系统的游戏逐一比对
+                          {customGames.length > 0 && <span className="text-teal-core">（含 {customGames.length} 款你添加的游戏）</span>}
                         </div>
                       </div>
                       <button
@@ -252,9 +310,16 @@ export default function App() {
         {/* 页脚 */}
         <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-ink-800 pt-5 text-[11px] text-ink-600">
           <span>能不能玩 · CAN I PLAY — Steam 硬件游戏匹配器（非官方，与 Valve 无关）</span>
-          <span className="font-display tracking-wider">LOCAL ONLY · NO UPLOAD · {GAMES.length} GAMES INDEXED</span>
+          <span className="font-display tracking-wider">LOCAL FIRST · {allGames.length} GAMES · {CPU_MODELS.length + GPU_MODELS.length} HW SAMPLES</span>
         </footer>
       </div>
+
+      <AddGameModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onAdd={addCustomGame}
+        existingIds={existingIds}
+      />
     </div>
   );
 }

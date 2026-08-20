@@ -167,3 +167,20 @@ export const InfoIcon = ({ className }: IconProps) => (
     </g>
   </svg>
 );
+
+export const PlusIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S} strokeWidth={2.2}>
+      <path d="M12 5v14M5 12h14" />
+    </g>
+  </svg>
+);
+
+export const TrashIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <path d="M3.5 6h17M8.5 6V4.5A1.5 1.5 0 0 1 10 3h4a1.5 1.5 0 0 1 1.5 1.5V6m3 0-.8 13a2 2 0 0 1-2 1.9H8.3a2 2 0 0 1-2-1.9L5.5 6" />
+      <path d="M10 10.5v6M14 10.5v6" />
+    </g>
+  </svg>
+);
