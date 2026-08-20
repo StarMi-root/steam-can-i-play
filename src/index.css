@@ -1,1 +1,140 @@
 @import "tailwindcss";
+
+@theme {
+  --font-display: "Chakra Petch", "Noto Sans SC", sans-serif;
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  --color-ink-950: #0f1319;
+  --color-ink-900: #141922;
+  --color-ink-850: #181f2a;
+  --color-ink-800: #1d2532;
+  --color-ink-750: #232d3d;
+  --color-ink-700: #2a3547;
+  --color-ink-600: #3a4a61;
+  --color-ink-500: #5d6d84;
+  --color-ink-400: #8b99ad;
+  --color-ink-300: #a9b6c8;
+  --color-ink-100: #e8edf4;
+
+  --color-amber-hi: #ffd08a;
+  --color-amber-core: #f5a83c;
+  --color-amber-deep: #b97417;
+  --color-teal-core: #3fd0c9;
+  --color-teal-dim: #1e6b68;
+  --color-ok: #58d68b;
+  --color-warn: #f2b23e;
+  --color-bad: #f0655a;
+  --color-steam: #66c0f4;
+
+  --animate-step-in: stepIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-up: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pop: pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-led: ledPulse 1.6s ease-in-out infinite;
+  --animate-blink: blink 1.1s steps(2, start) infinite;
+  --animate-scan: scanMove 1.2s linear infinite;
+  --animate-drift: drift 14s ease-in-out infinite alternate;
+  --animate-bar-grow: barGrow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-marquee-glow: glowSweep 5s ease-in-out infinite;
+}
+
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes ledPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
+  50% { opacity: 0.45; box-shadow: 0 0 1px currentColor; }
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+@keyframes scanMove {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(260%); }
+}
+@keyframes drift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to { transform: translate3d(3%, 2%, 0) scale(1.08); }
+}
+@keyframes barGrow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes glowSweep {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+html {
+  scrollbar-color: #3a4a61 #141922;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-ink-950);
+  color: var(--color-ink-100);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* 环境背景：网格 + 双色微光 + 顶部热区 */
+.bg-ambient {
+  background:
+    radial-gradient(900px 480px at 8% -6%, rgba(245, 168, 60, 0.09), transparent 62%),
+    radial-gradient(1100px 620px at 100% 108%, rgba(63, 208, 201, 0.07), transparent 60%),
+    linear-gradient(180deg, #12161f 0%, #0f1319 40%, #0e1218 100%);
+}
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(139, 153, 173, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(139, 153, 173, 0.055) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.35) 55%, transparent 96%);
+}
+
+.tick-rule {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(139, 153, 173, 0.35) 0 1px,
+    transparent 1px 8px
+  );
+}
+
+::selection {
+  background: rgba(245, 168, 60, 0.35);
+  color: #fff7ea;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a3547;
+  border-radius: 8px;
+  border: 2px solid #141922;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a4a61;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}

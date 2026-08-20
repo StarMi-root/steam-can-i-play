@@ -1,0 +1,129 @@
+import { Game } from "../data/games";
+import { OsId } from "../data/hardware";
+
+export interface Build {
+  os: OsId | null;
+  cpu: { name: string; score: number } | null;
+  gpu: { name: string; score: number } | null;
+  ram: number | null;
+}
+
+export const EMPTY_BUILD: Build = { os: null, cpu: null, gpu: null, ram: null };
+
+export type FitLevel = "perfect" | "smooth" | "low" | "no";
+
+export interface Fit {
+  game: Game;
+  level: FitLevel;
+  factor: number; // 木桶比例：最弱一环 / 最低需求
+  estFps: number;
+  ramOk: boolean;
+  bottleneck: "cpu" | "gpu" | "ram" | null;
+}
+
+export function osSupported(game: Game, os: OsId): boolean {
+  switch (os) {
+    case "win11":
+    case "win10":
+      return game.os.win;
+    case "win7":
+      return game.os.win && !game.w10;
+    case "mac":
+      return game.os.mac;
+    case "linux":
+      return game.os.linux;
+  }
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+export function evaluate(build: Build, game: Game): Fit | null {
+  if (!build.os || !build.cpu || !build.gpu || build.ram == null) return null;
+  if (!osSupported(game, build.os)) return null;
+
+  const cpuR = build.cpu.score / game.minCpu;
+  const gpuR = build.gpu.score / game.minGpu;
+  const ramOk = build.ram >= game.minRam;
+
+  let factor = Math.min(cpuR, gpuR);
+  if (!ramOk) factor *= 0.62; // 内存不足会显著拖累实际体验
+
+  let bottleneck: Fit["bottleneck"] = null;
+  if (!ramOk) bottleneck = "ram";
+  else if (cpuR < gpuR) bottleneck = "cpu";
+  else bottleneck = "gpu";
+
+  const estFps = clamp(Math.round(60 * factor), 12, 240);
+
+  let level: FitLevel;
+  if (factor >= 1.5) level = "perfect";
+  else if (factor >= 1) level = "smooth";
+  else if (factor >= 0.72) level = "low";
+  else level = "no";
+
+  return { game, level, factor, estFps, ramOk, bottleneck };
+}
+
+export function evaluateAll(build: Build, games: Game[]): {
+  playable: Fit[];
+  rejected: Fit[];
+} {
+  const playable: Fit[] = [];
+  const rejected: Fit[] = [];
+  for (const g of games) {
+    const fit = evaluate(build, g);
+    if (!fit) continue;
+    if (fit.level === "no") rejected.push(fit);
+    else playable.push(fit);
+  }
+  playable.sort((a, b) => b.factor - a.factor);
+  rejected.sort((a, b) => b.factor - a.factor);
+  return { playable, rejected };
+}
+
+export const LEVEL_META: Record<
+  FitLevel,
+  { label: string; desc: string; color: string; bg: string }
+> = {
+  perfect: {
+    label: "完美运行",
+    desc: "高画质 · 60 帧以上",
+    color: "text-ok",
+    bg: "bg-ok/10 border-ok/30",
+  },
+  smooth: {
+    label: "流畅运行",
+    desc: "中高画质 · 约 60 帧",
+    color: "text-teal-core",
+    bg: "bg-teal-core/10 border-teal-core/30",
+  },
+  low: {
+    label: "勉强可玩",
+    desc: "低画质 · 30~45 帧",
+    color: "text-warn",
+    bg: "bg-warn/10 border-warn/30",
+  },
+  no: {
+    label: "带不动",
+    desc: "低于最低配置",
+    color: "text-bad",
+    bg: "bg-bad/10 border-bad/30",
+  },
+};
+
+/** 整机段位 */
+export function machineGrade(cpuScore: number, gpuScore: number) {
+  const v = cpuScore / 320 + gpuScore / 640; // 双 1 即为“甜品基准线”
+  if (v < 0.5) return { grade: "入门办公", tag: "OFFICE", tone: "text-ink-300", advice: "适合网页办公与轻度网游，升级显卡收益最明显。" };
+  if (v < 1) return { grade: "网游畅玩", tag: "ESPORT", tone: "text-teal-core", advice: "主流电竞网游毫无压力，3A 大作需降低画质。" };
+  if (v < 1.6) return { grade: "甜品进阶", tag: "SWEET SPOT", tone: "text-amber-core", advice: "1080P 高画质畅玩绝大多数游戏。" };
+  if (v < 2.4) return { grade: "高端发烧", tag: "ENTHUSIAST", tone: "text-amber-hi", advice: "2K 分辨率全开画质，4K 中画质可战。" };
+  return { grade: "旗舰极致", tag: "FLAGSHIP", tone: "text-ok", advice: "4K 全高画质 + 高刷，通吃当前所有游戏。" };
+}
+
+export function upgradeHint(build: Build): string | null {
+  if (!build.cpu || !build.gpu || build.ram == null) return null;
+  const hints: string[] = [];
+  if (build.ram < 16) hints.push(`内存加到 16GB（当前 ${build.ram}GB）能让不少新游戏跨过门槛`);
+  return hints[0] ?? null;
+}
