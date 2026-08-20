@@ -1,6 +1,9 @@
 /**
- * 内置 AI 助手：默认使用 Pollinations 免费文本模型（无需 API Key、无需配置）。
- * 网络不可用时自动降级为本地知识库问答，保证始终有回答。
+ * 内置 AI 助手核心：
+ * - 免费模式：Pollinations 文本模型，无需 Key、开箱即用（默认）
+ * - 自定义 API：任意 OpenAI 兼容接口（OpenAI / DeepSeek / Kimi / 智谱 / Groq / OpenRouter / LM Studio…）
+ * - 本地 AI：Ollama / LM Studio 本机服务
+ * 任一通道失败时自动降级为本地知识库问答，保证始终有回答。
  */
 
 export interface ChatMsg {
@@ -11,6 +14,72 @@ export interface ChatMsg {
 export interface AiReply {
   text: string;
   source: "ai" | "kb";
+  /** 实际使用的通道描述，如「DeepSeek · deepseek-chat」「本地 Ollama · llama3」 */
+  provider?: string;
+}
+
+export interface OpenAiConfig {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+export interface OllamaConfig {
+  baseUrl: string;
+  model: string;
+}
+
+export interface AiConfig {
+  provider: "free" | "openai" | "ollama";
+  openai: OpenAiConfig;
+  ollama: OllamaConfig;
+}
+
+export const AI_CONFIG_KEY = "cip.aiConfig.v1";
+
+export const DEFAULT_AI_CONFIG: AiConfig = {
+  provider: "free",
+  openai: { baseUrl: "https://api.deepseek.com", apiKey: "", model: "deepseek-chat" },
+  ollama: { baseUrl: "http://localhost:11434", model: "" },
+};
+
+/** OpenAI 兼容接口预设（含本地服务） */
+export const OPENAI_PRESETS: { label: string; baseUrl: string; model: string; needKey: boolean }[] = [
+  { label: "DeepSeek（推荐）", baseUrl: "https://api.deepseek.com", model: "deepseek-chat", needKey: true },
+  { label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", needKey: true },
+  { label: "Moonshot Kimi", baseUrl: "https://api.moonshot.cn/v1", model: "moonshot-v1-8k", needKey: true },
+  { label: "智谱 GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4-flash", needKey: true },
+  { label: "Groq（极速）", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile", needKey: true },
+  { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", model: "deepseek/deepseek-chat", needKey: true },
+  { label: "LM Studio（本机）", baseUrl: "http://localhost:1234/v1", model: "local-model", needKey: false },
+];
+
+export function loadAiConfig(): AiConfig {
+  try {
+    const raw = localStorage.getItem(AI_CONFIG_KEY);
+    if (!raw) return DEFAULT_AI_CONFIG;
+    const p = JSON.parse(raw);
+    return {
+      provider: p?.provider === "openai" || p?.provider === "ollama" ? p.provider : "free",
+      openai: { ...DEFAULT_AI_CONFIG.openai, ...(p?.openai ?? {}) },
+      ollama: { ...DEFAULT_AI_CONFIG.ollama, ...(p?.ollama ?? {}) },
+    };
+  } catch {
+    return DEFAULT_AI_CONFIG;
+  }
+}
+
+export function saveAiConfig(cfg: AiConfig) {
+  try { localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(cfg)); } catch { /* 忽略 */ }
+}
+
+export function providerLabel(cfg: AiConfig): string {
+  if (cfg.provider === "openai") {
+    const preset = OPENAI_PRESETS.find((p) => p.baseUrl === cfg.openai.baseUrl.trim().replace(/\/+$/, ""));
+    return `${preset?.label.replace(/（.*）/, "") ?? "自定义 API"} · ${cfg.openai.model || "未设模型"}`;
+  }
+  if (cfg.provider === "ollama") return `本地 Ollama · ${cfg.ollama.model || "未选模型"}`;
+  return "免费模型 · Pollinations";
 }
 
 const SYSTEM_PROMPT =
@@ -18,31 +87,130 @@ const SYSTEM_PROMPT =
   "用户会咨询：Steam 游戏能否在某配置上运行、CPU/GPU/内存升级建议、Windows/Linux（Proton、Steam Play、驱动、GameMode）游戏故障排查。" +
   "要求：用简体中文回答；简洁分点；涉及 Linux 时给出可复制的终端命令；不编造精确帧数，用区间估计；回答控制在 220 字以内。";
 
-/** 调用免费模型（Pollinations text API，免 Key） */
-async function callFreeModel(history: ChatMsg[]): Promise<string> {
+/* ---------------- 三种通道 ---------------- */
+
+async function withTimeout(ms: number): Promise<AbortSignal> {
   const ctrl = new AbortController();
-  const t = window.setTimeout(() => ctrl.abort(), 28000);
+  window.setTimeout(() => ctrl.abort(), ms);
+  return ctrl.signal;
+}
+
+/** 免费通道：Pollinations text API（免 Key） */
+async function callFreeModel(history: ChatMsg[]): Promise<string> {
+  const res = await fetch("https://text.pollinations.ai/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history.slice(-8)],
+      model: "openai",
+      private: true,
+    }),
+    signal: await withTimeout(28000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = (await res.text()).trim();
+  if (!text) throw new Error("空响应");
+  return text;
+}
+
+/** 自定义通道：OpenAI 兼容接口 */
+async function callOpenAiCompatible(cfg: OpenAiConfig, history: ChatMsg[]): Promise<string> {
+  const base = cfg.baseUrl.trim().replace(/\/+$/, "");
+  if (!base) throw new Error("未填写 Base URL");
+  if (!cfg.model.trim()) throw new Error("未填写模型名");
+  const res = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(cfg.apiKey.trim() ? { Authorization: `Bearer ${cfg.apiKey.trim()}` } : {}),
+    },
+    body: JSON.stringify({
+      model: cfg.model.trim(),
+      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history.slice(-8)],
+      stream: false,
+      max_tokens: 640,
+    }),
+    signal: await withTimeout(40000),
+  });
+  if (!res.ok) {
+    let detail = "";
+    try { detail = (await res.text()).slice(0, 120); } catch { /* 忽略 */ }
+    throw new Error(`接口返回 HTTP ${res.status}${detail ? `：${detail}` : ""}`);
+  }
+  const data = await res.json();
+  const text: unknown = data?.choices?.[0]?.message?.content;
+  if (typeof text !== "string" || !text.trim()) throw new Error("接口未返回有效内容");
+  return text.trim();
+}
+
+/** 本地通道：Ollama（/api/chat） */
+async function callOllama(cfg: OllamaConfig, history: ChatMsg[]): Promise<string> {
+  const base = cfg.baseUrl.trim().replace(/\/+$/, "");
+  if (!base) throw new Error("未填写 Ollama 地址");
+  if (!cfg.model.trim()) throw new Error("未选择 Ollama 模型");
+  const res = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: cfg.model.trim(),
+      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history.slice(-8)],
+      stream: false,
+    }),
+    signal: await withTimeout(60000),
+  });
+  if (!res.ok) throw new Error(`Ollama 返回 HTTP ${res.status}`);
+  const data = await res.json();
+  const text: unknown = data?.message?.content;
+  if (typeof text !== "string" || !text.trim()) throw new Error("Ollama 未返回有效内容");
+  return text.trim();
+}
+
+/* ---------------- 连接测试 / 模型列表 ---------------- */
+
+export interface TestResult { ok: boolean; msg: string }
+
+export async function testAiConfig(cfg: AiConfig): Promise<TestResult> {
   try {
-    const res = await fetch("https://text.pollinations.ai/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history.slice(-8)],
-        model: "openai",
-        private: true,
-      }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = (await res.text()).trim();
-    if (!text) throw new Error("空响应");
-    return text;
-  } finally {
-    window.clearTimeout(t);
+    if (cfg.provider === "openai") {
+      const base = cfg.openai.baseUrl.trim().replace(/\/+$/, "");
+      if (!base) return { ok: false, msg: "请先填写 Base URL" };
+      const res = await fetch(`${base}/models`, {
+        headers: cfg.openai.apiKey.trim() ? { Authorization: `Bearer ${cfg.openai.apiKey.trim()}` } : {},
+        signal: await withTimeout(10000),
+      });
+      if (!res.ok) return { ok: false, msg: `连接失败（HTTP ${res.status}），请检查地址与 Key` };
+      const data = await res.json();
+      const n = Array.isArray(data?.data) ? data.data.length : 0;
+      return { ok: true, msg: `连接成功${n ? ` · 可用模型 ${n} 个` : ""}` };
+    }
+    if (cfg.provider === "ollama") {
+      const models = await listOllamaModels(cfg.ollama.baseUrl);
+      return { ok: true, msg: `本地服务在线 · 已装 ${models.length} 个模型` };
+    }
+    const res = await fetch("https://text.pollinations.ai/models", { signal: await withTimeout(10000) });
+    return res.ok
+      ? { ok: true, msg: "免费通道可用（Pollinations）" }
+      : { ok: false, msg: `免费通道异常（HTTP ${res.status}）` };
+  } catch {
+    return {
+      ok: false,
+      msg: cfg.provider === "ollama"
+        ? "无法连接本地服务：确认 Ollama 已启动，且已允许跨域（设置环境变量 OLLAMA_ORIGINS=* 后重启）"
+        : "连接超时或被拦截，请检查网络 / 代理后重试",
+    };
   }
 }
 
-/* ---------- 本地知识库（离线兜底） ---------- */
+export async function listOllamaModels(baseUrl: string): Promise<string[]> {
+  const base = baseUrl.trim().replace(/\/+$/, "") || "http://localhost:11434";
+  const res = await fetch(`${base}/api/tags`, { signal: await withTimeout(8000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  const models: unknown[] = Array.isArray(data?.models) ? data.models : [];
+  return models.map((m: any) => String(m?.name ?? "")).filter(Boolean);
+}
+
+/* ---------------- 本地知识库（离线兜底） ---------------- */
 
 const KB: { re: RegExp; a: string }[] = [
   { re: /黑屏|进不去|打不开|无法启动/, a: "常见处理顺序：① 验证游戏文件完整性；② 更新显卡驱动；③ Linux 用户在启动项加 PROTON_LOG=1 %command% 查看 ~/steam-*.log；④ 关闭游戏内覆盖层（Steam/Discord）；⑤ 以窗口模式启动试试。仍不行就把日志发给我看。" },
@@ -65,12 +233,39 @@ function localKb(q: string): string {
   return "（离线知识库回答）暂时没匹配到现成答案。你可以换个说法描述问题，例如：游戏名 + 配置 + 症状（黑屏/闪退/帧数低）。联网恢复后我会用在线模型给你更详细的解答。";
 }
 
-export async function askAI(history: ChatMsg[]): Promise<AiReply> {
+/* ---------------- 统一入口 ---------------- */
+
+export async function askAI(
+  history: ChatMsg[],
+  cfg: AiConfig = DEFAULT_AI_CONFIG,
+): Promise<AiReply> {
+  const last = [...history].reverse().find((m) => m.role === "user");
+  const fallback = (reason: string): AiReply => ({
+    text: `${reason}\n\n${localKb(last?.content ?? "")}`,
+    source: "kb",
+    provider: "离线知识库",
+  });
+
+  if (cfg.provider === "openai") {
+    try {
+      const text = await callOpenAiCompatible(cfg.openai, history);
+      return { text, source: "ai", provider: providerLabel(cfg) };
+    } catch (e) {
+      return fallback(`⚠ 自定义 API 不可用（${e instanceof Error ? e.message : "网络错误"}），已切换离线知识库：`);
+    }
+  }
+  if (cfg.provider === "ollama") {
+    try {
+      const text = await callOllama(cfg.ollama, history);
+      return { text, source: "ai", provider: providerLabel(cfg) };
+    } catch (e) {
+      return fallback(`⚠ 本地 Ollama 不可用（${e instanceof Error ? e.message : "连接失败"}），已切换离线知识库：`);
+    }
+  }
   try {
     const text = await callFreeModel(history);
-    return { text, source: "ai" };
+    return { text, source: "ai", provider: "免费模型 · Pollinations" };
   } catch {
-    const last = [...history].reverse().find((m) => m.role === "user");
-    return { text: localKb(last?.content ?? ""), source: "kb" };
+    return fallback("⚠ 免费模型暂不可用，已切换离线知识库：");
   }
 }

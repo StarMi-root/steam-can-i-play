@@ -177,6 +177,15 @@ export const GlobeIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const SettingsIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.9 1.9M7.4 16.6l-1.9 1.9M18.5 18.5l-1.9-1.9M7.4 7.4 5.5 5.5" />
+    </g>
+  </svg>
+);
+
 export const UploadIcon = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
     <g {...S}>
