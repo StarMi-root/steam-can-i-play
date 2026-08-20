@@ -199,6 +199,54 @@ export async function getSteamAppInfo(appId: number): Promise<SteamAppInfo> {
   };
 }
 
+/* ---------------- Steam 热门榜单（一键更新游戏库） ---------------- */
+
+export interface TopGame { id: number; name: string }
+
+/**
+ * 拉取 Steam 热门游戏列表：
+ * 1) SteamSpy「史上最热 Top 100」  2) Steam 官方 featured categories 热销榜
+ * 两个来源去重合并，任一可用即可；全部失败抛出 NetError。
+ */
+export async function fetchSteamTopList(): Promise<TopGame[]> {
+  const out: TopGame[] = [];
+  const seen = new Set<number>();
+  const push = (rawId: unknown, name: unknown) => {
+    const id = Number(rawId);
+    if (!Number.isFinite(id) || id <= 0 || seen.has(id)) return;
+    if (typeof name !== "string" || !name.trim()) return;
+    seen.add(id);
+    out.push({ id, name: name.trim() });
+  };
+
+  try {
+    const data = await fetchViaProxy("https://steamspy.com/api.php?request=top100forever", 15000);
+    if (data && typeof data === "object") {
+      for (const v of Object.values(data) as any[]) push(v?.appid, v?.name);
+    }
+  } catch {
+    /* 尝试下一个来源 */
+  }
+
+  try {
+    const data = await fetchViaProxy(
+      "https://store.steampowered.com/api/featuredcategories/?l=schinese&cc=cn",
+      15000,
+    );
+    for (const key of ["top_sellers", "popular_new"]) {
+      const items = data?.[key]?.items;
+      if (Array.isArray(items)) for (const it of items) push(it?.id, it?.name);
+    }
+  } catch {
+    /* 忽略 */
+  }
+
+  if (out.length === 0) {
+    throw new NetError("无法获取 Steam 热门榜单（代理可能受限），可稍后重试或用「联网添加」逐一导入");
+  }
+  return out.slice(0, 120);
+}
+
 /* ---------------- 硬件联网查分 ---------------- */
 
 export interface ScoreLookup extends EstimateResult {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GAMES, Game } from "./data/games";
+import { EXT_GAMES_KEY, GAMES, Game } from "./data/games";
 import {
   CPU_MODELS, CUSTOM_GAMES_KEY, CUSTOM_HARDWARE_KEY, GPU_MODELS, OS_OPTIONS,
 } from "./data/hardware";
@@ -8,8 +8,9 @@ import SpecPanel from "./components/SpecPanel";
 import Results from "./components/Results";
 import AddGameModal from "./components/AddGameModal";
 import { StepOs, StepCpu, StepGpu, StepRam, StepShell, HardwareItem } from "./components/Steps";
-import { ArrowRight, CheckIcon, GlobeIcon, LogoMark, PlusIcon } from "./components/icons";
-import { probeNetwork } from "./lib/net";
+import { ArrowRight, CheckIcon, GlobeIcon, LogoMark, PlusIcon, RestartIcon } from "./components/icons";
+import { NetError, probeNetwork } from "./lib/net";
+import { UpdateProgress, updateGameLibrary } from "./lib/updater";
 
 const STEP_META = [
   { label: "系统", en: "OS" },
@@ -95,7 +96,14 @@ export default function App() {
   const [customGames, setCustomGames] = useState<Game[]>(() =>
     load(CUSTOM_GAMES_KEY, [] as Game[])
   );
+  const [extGames, setExtGames] = useState<Game[]>(() => load(EXT_GAMES_KEY, [] as Game[]));
   const timer = useRef<number | null>(null);
+
+  /* 一键更新游戏库 */
+  const [updating, setUpdating] = useState<UpdateProgress | null>(null);
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+  const msgTimer = useRef<number | null>(null);
 
   /* 联网状态探测：让用户直观看到代理通道是否可用 */
   const [net, setNet] = useState<"checking" | "ok" | "down">("checking");
@@ -111,8 +119,21 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem(CUSTOM_GAMES_KEY, JSON.stringify(customGames)); } catch { /* 忽略配额错误 */ }
   }, [customGames]);
+  useEffect(() => {
+    try { localStorage.setItem(EXT_GAMES_KEY, JSON.stringify(extGames)); } catch { /* 忽略配额错误 */ }
+  }, [extGames]);
 
-  const allGames = useMemo(() => [...GAMES, ...customGames], [customGames]);
+  const allGames = useMemo(() => {
+    const seen = new Set<number>();
+    const out: Game[] = [];
+    for (const g of [...GAMES, ...extGames, ...customGames]) {
+      if (!seen.has(g.id)) {
+        seen.add(g.id);
+        out.push(g);
+      }
+    }
+    return out;
+  }, [extGames, customGames]);
   const existingIds = useMemo(() => new Set(allGames.map((g) => g.id)), [allGames]);
 
   const advance = (to: number) => {
@@ -144,6 +165,34 @@ export default function App() {
   };
   const deleteCustomGame = (id: number) =>
     setCustomGames((cur) => cur.filter((c) => c.id !== id));
+
+  /* 一键更新游戏库：Steam 热门榜 → 详情 → 解析官方配置 → 入库 */
+  const runUpdate = async () => {
+    if (updating) return;
+    cancelRef.current = false;
+    setUpdating({ phase: "连接 Steam 榜单", done: 0, total: 0 });
+    setUpdateMsg(null);
+    try {
+      const res = await updateGameLibrary(existingIds, setUpdating, () => cancelRef.current);
+      if (res.added.length > 0) {
+        setExtGames((cur) => {
+          const seen = new Set([...GAMES, ...customGames, ...cur].map((g) => g.id));
+          return [...res.added.filter((g) => !seen.has(g.id)), ...cur].slice(0, 600);
+        });
+      }
+      const parts: string[] = [`新增 ${res.added.length} 款`];
+      if (res.already > 0) parts.push(`已收录 ${res.already} 款`);
+      if (res.skipped > 0) parts.push(`跳过 ${res.skipped} 款未公布配置`);
+      if (res.failed > 0) parts.push(`${res.failed} 款拉取失败`);
+      setUpdateMsg(`${cancelRef.current ? "已取消，部分完成：" : "游戏库更新完成："}${parts.join("，")}`);
+    } catch (e) {
+      setUpdateMsg(e instanceof NetError ? e.message : "更新失败，请稍后重试");
+    } finally {
+      setUpdating(null);
+      if (msgTimer.current) window.clearTimeout(msgTimer.current);
+      msgTimer.current = window.setTimeout(() => setUpdateMsg(null), 9000);
+    }
+  };
 
   const done = [!!build.os, !!build.cpu, !!build.gpu, build.ram != null];
   const ready = done.every(Boolean);
@@ -231,12 +280,54 @@ export default function App() {
                 </span>
               )}
             </button>
+            <button
+              onClick={runUpdate}
+              disabled={!!updating}
+              title="从 Steam 官方热销榜 + 历史最热 Top100 批量导入游戏，自动解析官方配置（需代理可用）"
+              className="group flex items-center gap-2 rounded-sm border border-amber-core/60 bg-amber-core/[0.09] px-3.5 py-2.5 text-sm font-bold text-amber-core transition-all hover:-translate-y-0.5 hover:bg-amber-core/[0.18] hover:shadow-[0_8px_24px_-10px_rgba(245,168,60,0.6)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RestartIcon
+                className={`h-4 w-4 ${updating ? "animate-spin" : "transition-transform duration-500 group-hover:rotate-180"}`}
+              />
+              {updating ? "更新中…" : "一键更新游戏库"}
+            </button>
             <div className="hidden font-display text-[11px] tracking-wider text-ink-500 md:block">
               <div><b className="text-ink-300">{allGames.length}</b> 款游戏</div>
               <div className="mt-0.5"><b className="text-ink-300">{CPU_MODELS.length + GPU_MODELS.length}</b> 硬件样本</div>
             </div>
           </div>
         </header>
+
+        {/* 游戏库更新进度 */}
+        {updating && (
+          <div className="mt-4 animate-fade-up rounded-sm border border-amber-core/40 bg-ink-900/85 px-4 py-3 backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="flex items-center gap-2 font-bold text-amber-core">
+                <RestartIcon className="h-3.5 w-3.5 animate-spin" />
+                {updating.phase}
+                {updating.total > 0 && (
+                  <span className="font-display text-ink-300">
+                    {updating.done} / {updating.total}
+                  </span>
+                )}
+              </span>
+              <button
+                onClick={() => { cancelRef.current = true; }}
+                className="rounded-sm border border-ink-700 px-2.5 py-1 text-ink-400 transition-colors hover:border-bad/50 hover:text-bad"
+              >
+                取消
+              </button>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-ink-750">
+              <div
+                className={`h-full rounded-full bg-gradient-to-r from-amber-deep to-amber-core transition-all duration-300 ${
+                  updating.total === 0 ? "w-1/3 animate-pulse" : ""
+                }`}
+                style={updating.total > 0 ? { width: `${Math.max(3, Math.round((updating.done / updating.total) * 100))}%` } : undefined}
+              />
+            </div>
+          </div>
+        )}
 
         {/* 主体 */}
         <main className="mt-6 grid gap-6 lg:grid-cols-[290px_1fr]">
@@ -347,9 +438,22 @@ export default function App() {
         {/* 页脚 */}
         <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-ink-800 pt-5 text-[11px] text-ink-600">
           <span>能不能玩 · CAN I PLAY — Steam 硬件游戏匹配器（非官方，与 Valve 无关）</span>
-          <span className="font-display tracking-wider">LOCAL FIRST · {allGames.length} GAMES · {CPU_MODELS.length + GPU_MODELS.length} HW SAMPLES</span>
+          <span className="font-display tracking-wider">
+            LOCAL FIRST · 内置 {GAMES.length} + 在线导入 {extGames.length} + 手动 {customGames.length} = {allGames.length} GAMES · {CPU_MODELS.length + GPU_MODELS.length} HW
+          </span>
         </footer>
       </div>
+
+      {/* 更新结果提示 */}
+      {updateMsg && (
+        <div className="animate-fade-up fixed bottom-5 right-5 z-50 flex max-w-sm items-start gap-3 rounded-sm border border-ink-600 bg-ink-900 px-4 py-3 text-xs leading-relaxed text-ink-100 shadow-[0_20px_60px_-16px_rgba(0,0,0,0.9)]">
+          <span className="animate-led mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-core text-amber-core" />
+          <span>{updateMsg}</span>
+          <button onClick={() => setUpdateMsg(null)} className="ml-1 shrink-0 text-ink-500 transition-colors hover:text-ink-100">
+            关闭
+          </button>
+        </div>
+      )}
 
       <AddGameModal
         open={modalOpen}

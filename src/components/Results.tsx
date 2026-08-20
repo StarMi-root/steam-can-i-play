@@ -70,6 +70,11 @@ function GameCard({
               我添加的
             </span>
           )}
+          {fit.game.ext && (
+            <span className="rounded-sm border border-amber-core/50 bg-ink-900/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-core backdrop-blur-sm">
+              在线库
+            </span>
+          )}
           {fit.game.vr && (
             <span className="flex items-center gap-1 rounded-sm border border-ink-600 bg-ink-900/80 px-1.5 py-0.5 text-[10px] text-ink-300 backdrop-blur-sm">
               <VrIcon className="h-3 w-3" /> VR
