@@ -10,9 +10,12 @@ import AddGameModal from "./components/AddGameModal";
 import UpdateModal from "./components/UpdateModal";
 import LinuxGuideModal from "./components/LinuxGuide";
 import AiChat from "./components/AiChat";
+import Toolbox from "./components/Toolbox";
+import SteamAccount from "./components/SteamAccount";
 import { StepOs, StepCpu, StepGpu, StepRam, StepShell, StepMobo, HardwareItem, MoboPick } from "./components/Steps";
-import { ArrowRight, CheckIcon, ChipIcon, GlobeIcon, LogoMark, PlusIcon, RestartIcon } from "./components/icons";
+import { ArrowRight, CheckIcon, ChipIcon, GlobeIcon, LogoMark, PlusIcon, RestartIcon, SteamIcon } from "./components/icons";
 import { probeNetwork } from "./lib/net";
+import { STEAM_CONN_KEY, SteamConn, SteamOwnedGame, fetchOwnedGames } from "./lib/steam";
 
 const STEP_META = [
   { label: "系统", en: "OS" },
@@ -94,6 +97,24 @@ export default function App() {
   const [updateOpen, setUpdateOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [mobo, setMobo] = useState<MoboPick | null>(null);
+
+  /* Steam 账户接入 */
+  const [steamConn, setSteamConn] = useState<SteamConn | null>(() => {
+    try {
+      const raw = localStorage.getItem(STEAM_CONN_KEY);
+      return raw ? (JSON.parse(raw) as SteamConn) : null;
+    } catch { return null; }
+  });
+  const [steamOpen, setSteamOpen] = useState(false);
+  const [ownedGames, setOwnedGames] = useState<SteamOwnedGame[] | null>(null);
+  useEffect(() => {
+    if (!steamConn) { setOwnedGames(null); return; }
+    let alive = true;
+    fetchOwnedGames(steamConn.key, steamConn.steamid)
+      .then((g) => { if (alive) setOwnedGames(g); })
+      .catch(() => { if (alive) setOwnedGames([]); });
+    return () => { alive = false; };
+  }, [steamConn]);
 
   const [customHardware, setCustomHardware] = useState<
     (HardwareItem & { kind: "cpu" | "gpu" })[]
@@ -192,6 +213,32 @@ export default function App() {
     [os, allGames]
   );
 
+  /* Steam 库 × 匹配结果交叉统计 */
+  const ownedIds = useMemo(() => new Set((ownedGames ?? []).map((g) => g.appid)), [ownedGames]);
+  const playableIds = useMemo(() => new Set((result?.playable ?? []).map((f) => f.game.id)), [result]);
+  const steamStats = useMemo(() => {
+    if (!ownedGames) return null;
+    const inLib = ownedGames.filter((g) => existingIds.has(g.appid)).length;
+    const playable = ownedGames.filter((g) => playableIds.has(g.appid)).length;
+    return { total: ownedGames.length, inLib, playable };
+  }, [ownedGames, existingIds, playableIds]);
+
+  /* 供 AI 助手读取的硬件档案上下文 */
+  const aiContext = useMemo(() => {
+    const parts: string[] = [];
+    if (build.os) parts.push(`操作系统：${OS_OPTIONS.find((o) => o.id === build.os)?.name ?? build.os}`);
+    if (build.cpu) parts.push(`CPU：${build.cpu.name}`);
+    if (build.gpu) parts.push(`GPU：${build.gpu.name}`);
+    if (build.ram != null) parts.push(`内存：${build.ram} GB`);
+    if (mobo) parts.push(`主板：${mobo.brand} · ${mobo.chipset}`);
+    if (result) {
+      const perfect = result.playable.filter((f) => f.level === "perfect").length;
+      parts.push(`匹配结果：${totalSupported} 款支持游戏中 ${result.playable.length} 款可玩（其中完美运行 ${perfect} 款），${result.rejected.length} 款带不动`);
+    }
+    if (steamConn && ownedGames) parts.push(`Steam 账户库：共 ${ownedGames.length} 款游戏，其中 ${steamStats?.playable ?? 0} 款当前配置可玩`);
+    return parts.length > 0 ? parts.join("\n") : undefined;
+  }, [build, mobo, result, totalSupported, steamConn, ownedGames, steamStats]);
+
   const startScan = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
     setView("result");
@@ -248,6 +295,23 @@ export default function App() {
               {net === "ok" ? "联网正常" : net === "down" ? "代理受限" : "检测中"}
             </button>
             <button
+              onClick={() => setSteamOpen(true)}
+              title="连接 Steam 账户：查看游戏库、好友、交叉匹配"
+              className={`group flex items-center gap-2 rounded-sm border px-3 py-2 text-xs font-bold transition-all hover:-translate-y-0.5 sm:px-3.5 sm:text-sm ${
+                steamConn
+                  ? "border-steam/60 bg-steam/[0.1] text-steam hover:bg-steam/[0.18]"
+                  : "border-ink-600 bg-ink-850 text-ink-300 hover:border-steam/50 hover:text-steam"
+              }`}
+            >
+              {steamConn?.avatar ? (
+                <img src={steamConn.avatar} alt="" className="h-4 w-4 rounded-full" />
+              ) : (
+                <SteamIcon className="h-4 w-4" />
+              )}
+              <span className="max-w-[7rem] truncate">{steamConn ? steamConn.persona : "Steam 账户"}</span>
+              {steamConn && <span className="animate-led h-1.5 w-1.5 rounded-full bg-ok" />}
+            </button>
+            <button
               onClick={() => { setModalMode("manual"); setModalOpen(true); }}
               title="不联网，直接填写游戏名、配置和图片，自动保存到本地游戏库"
               className="group flex items-center gap-2 rounded-sm border border-ink-600 bg-ink-850 px-3 py-2 text-xs font-bold text-ink-200 transition-all hover:-translate-y-0.5 hover:border-amber-core/60 hover:text-amber-core hover:shadow-[0_8px_24px_-10px_rgba(245,168,60,0.45)] sm:px-3.5 sm:text-sm"
@@ -293,6 +357,7 @@ export default function App() {
                 点击已点亮的条目可随时回头修改。自定义硬件与游戏保存在本机浏览器，不会上传。
               </p>
             )}
+            <Toolbox os={build.os} />
           </div>
 
           <div className="min-w-0">
@@ -315,6 +380,9 @@ export default function App() {
                   onAddGame={() => { setModalMode("online"); setModalOpen(true); }}
                   onDeleteCustomGame={deleteCustomGame}
                   onOpenGuide={isLinux ? () => setGuideOpen(true) : undefined}
+                  steamStats={steamStats}
+                  ownedIds={steamConn ? ownedIds : null}
+                  onOpenSteam={() => setSteamOpen(true)}
                 />
               ) : (
                 <>
@@ -475,7 +543,17 @@ export default function App() {
         gpuName={build.gpu?.name}
       />
 
-      <AiChat />
+      <SteamAccount
+        open={steamOpen}
+        onClose={() => setSteamOpen(false)}
+        conn={steamConn}
+        onConn={setSteamConn}
+        playableIds={playableIds}
+        libraryIds={existingIds}
+        allGames={allGames}
+      />
+
+      <AiChat context={aiContext} />
     </div>
   );
 }

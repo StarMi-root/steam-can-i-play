@@ -181,6 +181,7 @@ function ScanOverlay({ done }: { done: () => void }) {
 
 export default function Results({
   build, playable, rejected, totalSupported, onBack, onRestart, onAddGame, onDeleteCustomGame, onOpenGuide,
+  steamStats, ownedIds, onOpenSteam,
 }: {
   build: Build;
   playable: Fit[];
@@ -191,12 +192,16 @@ export default function Results({
   onAddGame: () => void;
   onDeleteCustomGame: (id: number) => void;
   onOpenGuide?: () => void;
+  steamStats?: { total: number; inLib: number; playable: number } | null;
+  ownedIds?: Set<number> | null;
+  onOpenSteam?: () => void;
 }) {
   const [scanned, setScanned] = useState(false);
   const [levelTab, setLevelTab] = useState<"all" | "perfect" | "smooth" | "low">("all");
   const [genre, setGenre] = useState<string>("全部");
   const [sort, setSort] = useState<"fit" | "year" | "name">("fit");
   const [showRejected, setShowRejected] = useState(false);
+  const [ownedOnly, setOwnedOnly] = useState(false);
 
   const counts = useMemo(() => ({
     all: playable.length,
@@ -215,13 +220,14 @@ export default function Results({
 
   const list = useMemo(() => {
     let arr = playable;
+    if (ownedOnly && ownedIds) arr = arr.filter((f) => ownedIds.has(f.game.id));
     if (levelTab !== "all") arr = arr.filter((f) => f.level === levelTab);
     if (genre === "免费") arr = arr.filter((f) => f.game.free);
     else if (genre !== "全部") arr = arr.filter((f) => f.game.genres.includes(genre));
     if (sort === "year") arr = [...arr].sort((a, b) => b.game.year - a.game.year);
     else if (sort === "name") arr = [...arr].sort((a, b) => a.game.zh.localeCompare(b.game.zh, "zh-CN"));
     return arr;
-  }, [playable, levelTab, genre, sort]);
+  }, [playable, levelTab, genre, sort, ownedOnly, ownedIds]);
 
   const grade = machineGrade(build.cpu!.score, build.gpu!.score);
   const hint = upgradeHint(build);
@@ -311,6 +317,36 @@ export default function Results({
         </div>
       </div>
 
+      {/* Steam 库交叉统计 */}
+      {steamStats && (
+        <div className="mt-4 flex animate-fade-up flex-wrap items-center gap-x-5 gap-y-2 rounded-sm border border-steam/35 bg-steam/[0.06] px-4 py-3">
+          <SteamIcon className="h-5 w-5 shrink-0 text-steam" />
+          <div className="text-xs text-ink-300">
+            <b className="font-display text-sm text-steam">{steamStats.playable}</b> / {steamStats.total} 款你的 Steam 游戏当前配置可玩
+            <span className="ml-2 text-ink-500">（{steamStats.inLib} 款在本工具匹配库中）</span>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {ownedIds && (
+              <button
+                onClick={() => setOwnedOnly((v) => !v)}
+                className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-all ${
+                  ownedOnly
+                    ? "border-steam bg-steam/[0.15] text-steam"
+                    : "border-ink-600 bg-ink-850 text-ink-400 hover:border-steam/50 hover:text-steam"
+                }`}
+              >
+                {ownedOnly ? "✓ 仅看我的库" : "仅看我的库"}
+              </button>
+            )}
+            {onOpenSteam && (
+              <button onClick={onOpenSteam} className="rounded-sm border border-ink-600 bg-ink-850 px-2.5 py-1 text-[11px] text-ink-300 transition-colors hover:border-steam/50 hover:text-steam">
+                管理账户
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 筛选工具栏 */}
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <div className="flex rounded-sm border border-ink-700 bg-ink-850 p-1">
@@ -386,7 +422,9 @@ export default function Results({
       ) : (
         <div className="mt-5 rounded-sm border border-dashed border-ink-700 px-6 py-14 text-center">
           <WarnIcon className="mx-auto h-8 w-8 text-warn" />
-          <p className="mt-3 text-sm font-bold text-ink-100">这个组合下没有符合条件的游戏</p>
+          <p className="mt-3 text-sm font-bold text-ink-100">
+            {ownedOnly && ownedIds ? "你的 Steam 库里没有可玩的游戏" : "这个组合下没有符合条件的游戏"}
+          </p>
           <p className="mt-1 text-xs text-ink-500">试试切换筛选条件、返回修改硬件配置，或联网添加你想查的游戏</p>
           <button
             onClick={onAddGame}

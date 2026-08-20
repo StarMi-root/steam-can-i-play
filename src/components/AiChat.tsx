@@ -228,9 +228,10 @@ function ConfigPanel({
 
 /* ---------- 聊天主体 ---------- */
 
-export default function AiChat() {
+export default function AiChat({ context }: { context?: string }) {
   const [open, setOpen] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [showCtx, setShowCtx] = useState(false);
   const [config, setConfig] = useState<AiConfig>(() => loadAiConfig());
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -255,7 +256,7 @@ export default function AiChat() {
     const history: Msg[] = [...msgs, { role: "user", content: text }];
     setMsgs(history);
     setPending(true);
-    const reply: AiReply = await askAI(history, config);
+    const reply: AiReply = await askAI(history, config, context);
     setMsgs((cur) => [...cur, { role: "assistant", content: reply.text, source: reply.source, provider: reply.provider }]);
     setPending(false);
   };
@@ -344,12 +345,34 @@ export default function AiChat() {
                       有问题直接问——游戏跑不动、配置怎么升级、Linux 驱动 / Proton 怎么配。
                       {!isFree && <span className="text-amber-core">当前使用 {providerLabel(config)}。</span>}
                     </p>
+
+                    {context && (
+                      <button
+                        onClick={() => setShowCtx((v) => !v)}
+                        className="mt-2.5 flex w-full items-start gap-2 rounded-sm border border-teal-core/35 bg-teal-core/[0.06] px-3 py-2 text-left transition-colors hover:bg-teal-core/[0.12]"
+                      >
+                        <span className="animate-led mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-teal-core" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[11px] font-bold text-teal-core">已读取你的硬件档案</span>
+                          {showCtx ? (
+                            <span className="mt-1 block whitespace-pre-wrap font-display text-[10px] leading-relaxed text-ink-400">{context}</span>
+                          ) : (
+                            <span className="block text-[10px] text-ink-500">提问时会自动附带，点击展开查看</span>
+                          )}
+                        </span>
+                      </button>
+                    )}
+
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {QUICK.map((q) => (
+                      {[...(context ? ["分析一下我现在的配置"] : []), ...QUICK].map((q) => (
                         <button
                           key={q}
                           onClick={() => send(q)}
-                          className="rounded-full border border-ink-700 bg-ink-850 px-3 py-1.5 text-[11px] text-ink-300 transition-colors hover:border-amber-core/50 hover:text-amber-core"
+                          className={`rounded-full border px-3 py-1.5 text-[11px] transition-colors ${
+                            q === "分析一下我现在的配置"
+                              ? "border-teal-core/60 bg-teal-core/[0.08] font-bold text-teal-core hover:bg-teal-core/[0.16]"
+                              : "border-ink-700 bg-ink-850 text-ink-300 hover:border-amber-core/50 hover:text-amber-core"
+                          }`}
                         >
                           {q}
                         </button>

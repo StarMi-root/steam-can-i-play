@@ -87,6 +87,14 @@ const SYSTEM_PROMPT =
   "用户会咨询：Steam 游戏能否在某配置上运行、CPU/GPU/内存升级建议、Windows/Linux（Proton、Steam Play、驱动、GameMode）游戏故障排查。" +
   "要求：用简体中文回答；简洁分点；涉及 Linux 时给出可复制的终端命令；不编造精确帧数，用区间估计；回答控制在 220 字以内。";
 
+/** 将用户录入的硬件档案拼进系统提示，让 AI 基于真实配置回答 */
+const systemMsg = (context?: string): { role: "system"; content: string } => ({
+  role: "system",
+  content: context
+    ? `${SYSTEM_PROMPT}\n\n【用户当前录入的硬件档案】\n${context}\n请优先基于以上真实配置作答，不要重复询问档案中已有的信息。`
+    : SYSTEM_PROMPT,
+});
+
 /* ---------------- 三种通道 ---------------- */
 
 async function withTimeout(ms: number): Promise<AbortSignal> {
@@ -96,12 +104,12 @@ async function withTimeout(ms: number): Promise<AbortSignal> {
 }
 
 /** 免费通道：Pollinations text API（免 Key） */
-async function callFreeModel(history: ChatMsg[]): Promise<string> {
+async function callFreeModel(history: ChatMsg[], context?: string): Promise<string> {
   const res = await fetch("https://text.pollinations.ai/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history.slice(-8)],
+      messages: [systemMsg(context), ...history.slice(-8)],
       model: "openai",
       private: true,
     }),
@@ -114,7 +122,7 @@ async function callFreeModel(history: ChatMsg[]): Promise<string> {
 }
 
 /** 自定义通道：OpenAI 兼容接口 */
-async function callOpenAiCompatible(cfg: OpenAiConfig, history: ChatMsg[]): Promise<string> {
+async function callOpenAiCompatible(cfg: OpenAiConfig, history: ChatMsg[], context?: string): Promise<string> {
   const base = cfg.baseUrl.trim().replace(/\/+$/, "");
   if (!base) throw new Error("未填写 Base URL");
   if (!cfg.model.trim()) throw new Error("未填写模型名");
@@ -126,7 +134,7 @@ async function callOpenAiCompatible(cfg: OpenAiConfig, history: ChatMsg[]): Prom
     },
     body: JSON.stringify({
       model: cfg.model.trim(),
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history.slice(-8)],
+      messages: [systemMsg(context), ...history.slice(-8)],
       stream: false,
       max_tokens: 640,
     }),
@@ -144,7 +152,7 @@ async function callOpenAiCompatible(cfg: OpenAiConfig, history: ChatMsg[]): Prom
 }
 
 /** 本地通道：Ollama（/api/chat） */
-async function callOllama(cfg: OllamaConfig, history: ChatMsg[]): Promise<string> {
+async function callOllama(cfg: OllamaConfig, history: ChatMsg[], context?: string): Promise<string> {
   const base = cfg.baseUrl.trim().replace(/\/+$/, "");
   if (!base) throw new Error("未填写 Ollama 地址");
   if (!cfg.model.trim()) throw new Error("未选择 Ollama 模型");
@@ -153,7 +161,7 @@ async function callOllama(cfg: OllamaConfig, history: ChatMsg[]): Promise<string
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: cfg.model.trim(),
-      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history.slice(-8)],
+      messages: [systemMsg(context), ...history.slice(-8)],
       stream: false,
     }),
     signal: await withTimeout(60000),
@@ -238,6 +246,8 @@ function localKb(q: string): string {
 export async function askAI(
   history: ChatMsg[],
   cfg: AiConfig = DEFAULT_AI_CONFIG,
+  /** 用户录入的硬件档案摘要，注入系统提示 */
+  context?: string,
 ): Promise<AiReply> {
   const last = [...history].reverse().find((m) => m.role === "user");
   const fallback = (reason: string): AiReply => ({
@@ -248,7 +258,7 @@ export async function askAI(
 
   if (cfg.provider === "openai") {
     try {
-      const text = await callOpenAiCompatible(cfg.openai, history);
+      const text = await callOpenAiCompatible(cfg.openai, history, context);
       return { text, source: "ai", provider: providerLabel(cfg) };
     } catch (e) {
       return fallback(`⚠ 自定义 API 不可用（${e instanceof Error ? e.message : "网络错误"}），已切换离线知识库：`);
@@ -256,14 +266,14 @@ export async function askAI(
   }
   if (cfg.provider === "ollama") {
     try {
-      const text = await callOllama(cfg.ollama, history);
+      const text = await callOllama(cfg.ollama, history, context);
       return { text, source: "ai", provider: providerLabel(cfg) };
     } catch (e) {
       return fallback(`⚠ 本地 Ollama 不可用（${e instanceof Error ? e.message : "连接失败"}），已切换离线知识库：`);
     }
   }
   try {
-    const text = await callFreeModel(history);
+    const text = await callFreeModel(history, context);
     return { text, source: "ai", provider: "免费模型 · Pollinations" };
   } catch {
     return fallback("⚠ 免费模型暂不可用，已切换离线知识库：");

@@ -186,6 +186,17 @@ export const SettingsIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const UsersIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.2 19.5c.6-3.2 2.9-5 5.8-5s5.2 1.8 5.8 5" />
+      <circle cx="16.8" cy="9" r="2.4" />
+      <path d="M15.5 14.6c2.8.2 4.7 1.8 5.3 4.4" />
+    </g>
+  </svg>
+);
+
 export const UploadIcon = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
     <g {...S}>
