@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CPU_MODELS, CPU_TIERS, GPU_MODELS, GPU_TIERS, OS_OPTIONS, RAM_OPTIONS,
   OsId, cpuTierLabel, gpuTierLabel, nearestModel,
 } from "../data/hardware";
-import { hardwareLookupLinks } from "../lib/net";
+import { ScoreLookup, hardwareLookupLinks, lookupHardwareScore } from "../lib/net";
 import {
-  AppleIcon, ArrowLeft, ExternalIcon, InfoIcon, LinuxIcon, PlusIcon, SearchIcon, TrashIcon, WindowsIcon,
+  AppleIcon, ArrowLeft, ExternalIcon, GlobeIcon, InfoIcon, LinuxIcon, PlusIcon, SearchIcon, TrashIcon, WindowsIcon,
 } from "./icons";
 
 /* ---------- 通用外壳 ---------- */
@@ -165,9 +165,11 @@ function CustomForm({
   const [name, setName] = useState("");
   const [score, setScore] = useState(kind === "cpu" ? 60 : 50);
   const [err, setErr] = useState<string | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [lookup, setLookup] = useState<ScoreLookup | null>(null);
   const near = nearestModel(score, kind);
   const tierOf = kind === "cpu" ? cpuTierLabel : gpuTierLabel;
-  const max = kind === "cpu" ? 132 : 170;
+  const max = kind === "cpu" ? 150 : 130;
   const unit = kind === "cpu" ? "处理器" : "显卡";
 
   const save = () => {
@@ -175,6 +177,31 @@ function CustomForm({
     if (n.length < 2) { setErr(`请输入${unit}型号名称（至少 2 个字符）`); return; }
     onSave({ name: n, score });
   };
+
+  const runLookup = async (n: string) => {
+    setLooking(true);
+    setLookup(null);
+    const res = await lookupHardwareScore(n, kind);
+    setScore(res.score);
+    setLookup(res);
+    setLooking(false);
+  };
+
+  const autoLookup = () => {
+    const n = name.trim();
+    if (n.length < 2) { setErr(`先输入${unit}型号名称，再联网查分`); return; }
+    setErr(null);
+    void runLookup(n);
+  };
+
+  /* 输入型号后自动联网查分（防抖 700ms） */
+  useEffect(() => {
+    const n = name.trim();
+    if (n.length < 2) { setLookup(null); return; }
+    const t = window.setTimeout(() => void runLookup(n), 700);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, kind]);
 
   return (
     <div className="animate-fade-up mt-3 rounded-sm border border-amber-core/40 bg-amber-core/[0.05] p-4">
@@ -191,6 +218,30 @@ function CustomForm({
         className="mt-3 w-full rounded-sm border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-ink-100 outline-none placeholder:text-ink-600 focus:border-amber-core/60"
       />
       {err && <div className="mt-1.5 text-xs text-bad">{err}</div>}
+
+      {/* 联网查分 */}
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          onClick={autoLookup}
+          disabled={looking}
+          className="inline-flex items-center gap-2 rounded-sm border border-teal-dim bg-teal-core/10 px-3 py-1.5 text-xs font-bold text-teal-core transition-colors hover:bg-teal-core/20 disabled:opacity-60"
+        >
+          {looking ? (
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-teal-core/30 border-t-teal-core" />
+          ) : (
+            <GlobeIcon className="h-3.5 w-3.5" />
+          )}
+          {looking ? "联网查分中…" : "联网自动查性能分"}
+        </button>
+        {lookup && !looking && (
+          <span className="text-[11px] text-ink-400">
+            <b className={lookup.source === "online" ? "text-ok" : "text-amber-core"}>
+              {lookup.source === "online" ? "在线" : "本地估算"}
+            </b>
+            · {lookup.note}
+          </span>
+        )}
+      </div>
 
       <div className="mt-4">
         <div className="flex items-baseline justify-between">
@@ -220,7 +271,7 @@ function CustomForm({
         不确定性能分？联网查一下：
         <span className="ml-1 inline-flex flex-wrap gap-2">
           {name.trim().length >= 2
-            ? hardwareLookupLinks(name.trim()).map((l) => (
+            ? hardwareLookupLinks(name.trim(), kind).map((l) => (
                 <a key={l.label} href={l.href} target="_blank" rel="noreferrer"
                   className="inline-flex items-center gap-1 text-teal-core hover:underline">
                   {l.label} <ExternalIcon className="h-2.5 w-2.5" />

@@ -56,10 +56,20 @@ export function evaluate(build: Build, game: Game): Fit | null {
   else if (cpuR < gpuR) bottleneck = "cpu";
   else bottleneck = "gpu";
 
-  const estFps = clamp(Math.round(60 * factor), 12, 240);
+  // 达到「推荐配置」直接判完美；否则按与最低配置的余量分档
+  const meetsRec =
+    game.recCpu != null && game.recGpu != null
+      ? build.cpu.score >= game.recCpu &&
+        build.gpu.score >= game.recGpu &&
+        build.ram >= (game.recRam ?? game.minRam)
+      : false;
+
+  const estFps = meetsRec
+    ? clamp(Math.round(90 + factor * 20), 90, 240)
+    : clamp(Math.round(60 * factor), 12, 240);
 
   let level: FitLevel;
-  if (factor >= 1.5) level = "perfect";
+  if (meetsRec || factor >= 1.5) level = "perfect";
   else if (factor >= 1) level = "smooth";
   else if (factor >= 0.72) level = "low";
   else level = "no";

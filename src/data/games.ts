@@ -12,6 +12,14 @@ export interface Game {
   minCpu: number;
   minGpu: number;
   minRam: number;
+  /** 推荐配置（可选）：达到即判「完美运行」 */
+  recCpu?: number;
+  recGpu?: number;
+  recRam?: number;
+  minNote?: string;
+  recNote?: string;
+  /** 自定义封面图（本地上传的 base64 或外链） */
+  image?: string;
   platforms: { win: boolean; mac: boolean; linux: boolean };
   vr?: boolean;
   free?: boolean;

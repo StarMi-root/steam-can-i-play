@@ -320,3 +320,79 @@ export function nearestModel(score: number, kind: "cpu" | "gpu"): { name: string
     Math.abs(m.score - score) < Math.abs(best.score - score) ? m : best
   );
 }
+
+/* ---------------- 本地估算：模糊匹配 + 型号解析 ---------------- */
+
+const norm = (s: string) =>
+  s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean);
+
+const tokenSet = (s: string) => new Set(norm(s));
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  let inter = 0;
+  a.forEach((t) => { if (b.has(t)) inter += 1; });
+  const uni = a.size + b.size - inter;
+  return uni === 0 ? 0 : inter / uni;
+}
+
+export interface EstimateResult {
+  score: number;
+  method: "local-match" | "heuristic";
+  matched?: string;
+  note: string;
+}
+
+/**
+ * 在内置库中为任意型号名估算性能分。
+ * 先做令牌模糊匹配（能命中库内相近型号），再做型号解析兜底。
+ */
+export function estimateScoreByName(raw: string, kind: "cpu" | "gpu"): EstimateResult {
+  const list = kind === "cpu" ? CPU_MODELS : GPU_MODELS;
+  const q = tokenSet(raw);
+
+  if (q.size > 0) {
+    let best: { name: string; score: number } | null = null;
+    let bestSim = 0;
+    for (const m of list) {
+      const sim = jaccard(q, tokenSet(m.name));
+      if (sim > bestSim) { bestSim = sim; best = m; }
+    }
+    if (best && bestSim >= 0.5) {
+      return {
+        score: best.score,
+        method: "local-match",
+        matched: best.name,
+        note: `与库内「${best.name}」最接近（相似度 ${(bestSim * 100) | 0}%）`,
+      };
+    }
+  }
+
+  return { score: heuristicParse(raw, kind), method: "heuristic", note: "型号解析估算，建议联网核对" };
+}
+
+/** 型号解析兜底：按品牌家族 + 代系/定位数字粗略定位 */
+function heuristicParse(raw: string, kind: "cpu" | "gpu"): number {
+  const s = raw.toLowerCase();
+  const nums = s.match(/\d+/g)?.map(Number) ?? [];
+  if (kind === "gpu") {
+    const isNv = /geforce|gtx|rtx|gt\s?\d/.test(s);
+    const isRadeon = /radeon|rx\s?\d|hd\s?\d|r[579]\s?\d{3}/.test(s);
+    const model = nums.find((n) => n >= 100) ?? nums[0] ?? 0;
+    const gen = Math.floor(model / 100);
+    const tier = model % 100;
+    if (isNv || isRadeon) {
+      // 代系基准 + 定位加成，限定在核显~旗舰之间
+      const base = 14 + Math.min(gen, 40) * 3;
+      const lift = Math.min(tier, 90) * 0.9;
+      return Math.max(10, Math.min(130, Math.round(base + lift)));
+    }
+    return /arc|iris|uhd|hd graphics/.test(s) ? 18 : 24;
+  }
+  /* cpu */
+  const isRyzen = /ryzen/.test(s);
+  const isIntel = /core|i[3579]|celeron|pentium|atom/.test(s);
+  const gen = nums[0] ?? 0;
+  if (isRyzen) return Math.max(30, Math.min(150, 40 + gen * 12));
+  if (isIntel) return Math.max(12, Math.min(150, 24 + Math.floor(gen / 1000) * 12 + gen % 10));
+  return /athlon|phenom|fx/.test(s) ? 30 : 46;
+}

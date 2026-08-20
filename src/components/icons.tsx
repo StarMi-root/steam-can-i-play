@@ -168,6 +168,24 @@ export const InfoIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const GlobeIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c-3.2 2.7-3.2 14.3 0 17M12 3.5c3.2 2.7 3.2 14.3 0 17" />
+    </g>
+  </svg>
+);
+
+export const UploadIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <path d="M12 15V4M8 8l4-4 4 4" />
+      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+    </g>
+  </svg>
+);
+
 export const PlusIcon = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
     <g {...S} strokeWidth={2.2}>

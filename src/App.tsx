@@ -9,6 +9,7 @@ import Results from "./components/Results";
 import AddGameModal from "./components/AddGameModal";
 import { StepOs, StepCpu, StepGpu, StepRam, StepShell, HardwareItem } from "./components/Steps";
 import { ArrowRight, CheckIcon, LogoMark, PlusIcon } from "./components/icons";
+import { probeNetwork } from "./lib/net";
 
 const STEP_META = [
   { label: "系统", en: "OS" },
@@ -94,6 +95,14 @@ export default function App() {
     load(CUSTOM_GAMES_KEY, [] as Game[])
   );
   const timer = useRef<number | null>(null);
+
+  /* 联网状态探测：让用户直观看到代理通道是否可用 */
+  const [net, setNet] = useState<"checking" | "ok" | "down">("checking");
+  const recheckNet = () => {
+    setNet("checking");
+    probeNetwork().then((ok) => setNet(ok ? "ok" : "down"));
+  };
+  useEffect(() => { recheckNet(); }, []);
 
   useEffect(() => {
     try { localStorage.setItem(CUSTOM_HARDWARE_KEY, JSON.stringify(customHardware)); } catch { /* 忽略配额错误 */ }
@@ -182,6 +191,24 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={recheckNet}
+              title="点击重新检测联网通道"
+              className={`flex items-center gap-2 rounded-sm border px-3 py-2.5 font-display text-[11px] font-semibold tracking-wide transition-colors ${
+                net === "ok"
+                  ? "border-ok/40 bg-ok/[0.07] text-ok"
+                  : net === "down"
+                    ? "border-warn/40 bg-warn/[0.07] text-warn"
+                    : "border-ink-700 bg-ink-850 text-ink-400"
+              }`}
+            >
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  net === "ok" ? "animate-led bg-ok text-ok" : net === "down" ? "bg-warn text-warn" : "animate-pulse bg-ink-500"
+                }`}
+              />
+              {net === "ok" ? "联网正常" : net === "down" ? "代理受限" : "检测中"}
+            </button>
             <button
               onClick={() => setModalOpen(true)}
               className="group flex items-center gap-2 rounded-sm border border-teal-core/50 bg-teal-core/[0.08] px-4 py-2.5 text-sm font-bold text-teal-core transition-all hover:-translate-y-0.5 hover:bg-teal-core/[0.16] hover:shadow-[0_8px_24px_-10px_rgba(61,220,211,0.5)]"

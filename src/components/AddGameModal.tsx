@@ -1,15 +1,94 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ALL_GENRES, Game } from "../data/games";
 import { CPU_TIERS, GPU_TIERS } from "../data/hardware";
 import { NetError, SteamAppInfo, SteamSearchHit, getSteamAppInfo, searchSteamGames } from "../lib/net";
-import { ExternalIcon, SearchIcon, SteamIcon, WarnIcon } from "./icons";
+import { ExternalIcon, SearchIcon, SteamIcon, UploadIcon, WarnIcon } from "./icons";
 
-const RAM_CHOICES = [2, 4, 6, 8, 12, 16, 24, 32];
+const RAM_CHOICES = [2, 4, 6, 8, 12, 16, 24, 32, 64];
+
+const capsule = (id: number) =>
+  `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/capsule_616x353.jpg`;
 
 function mapGenres(steamGenres: string[]): string[] {
   const hit = ALL_GENRES.filter((g) => g !== "其他" && steamGenres.some((sg) => sg.includes(g)));
   return hit.slice(0, 3);
 }
+
+/* ---------- 小部件 ---------- */
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-bold tracking-wide text-ink-400">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const inputCls =
+  "w-full rounded-sm border border-ink-700 bg-ink-950 px-2.5 py-1.5 text-sm text-ink-100 outline-none transition-colors placeholder:text-ink-600 focus:border-teal-core/60";
+
+function TierSelect({
+  options, value, onChange,
+}: {
+  options: { name: string; score: number }[];
+  value: number;
+  onChange: (i: number) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className={inputCls}
+    >
+      {options.map((o, i) => (
+        <option key={o.name} value={i}>
+          {o.name}（{o.score} 分）
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** 最低 / 推荐 配置录入块 */
+function ConfigBlock({
+  title, accent, cpuIdx, gpuIdx, ram, note,
+  onCpu, onGpu, onRam, onNote,
+}: {
+  title: string;
+  accent: string;
+  cpuIdx: number; gpuIdx: number; ram: number; note: string;
+  onCpu: (i: number) => void; onGpu: (i: number) => void;
+  onRam: (n: number) => void; onNote: (s: string) => void;
+}) {
+  return (
+    <div className="rounded-sm border border-ink-800 bg-ink-950/60 p-3">
+      <div className={`font-display text-[10px] font-bold tracking-[0.22em] ${accent}`}>{title}</div>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <Field label="CPU"><TierSelect options={CPU_TIERS} value={cpuIdx} onChange={onCpu} /></Field>
+        <Field label="GPU"><TierSelect options={GPU_TIERS} value={gpuIdx} onChange={onGpu} /></Field>
+        <Field label="内存">
+          <select value={ram} onChange={(e) => onRam(Number(e.target.value))} className={inputCls}>
+            {RAM_CHOICES.map((r) => <option key={r} value={r}>{r} GB</option>)}
+          </select>
+        </Field>
+      </div>
+      <div className="mt-2">
+        <Field label="官方原文（可选，仅展示）">
+          <textarea
+            value={note}
+            onChange={(e) => onNote(e.target.value)}
+            rows={2}
+            placeholder="粘贴官方最低/推荐配置原文…"
+            className={inputCls + " resize-none text-xs leading-relaxed"}
+          />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 主组件 ---------- */
 
 export default function AddGameModal({
   open, onClose, onAdd, existingIds,
@@ -19,22 +98,49 @@ export default function AddGameModal({
   onAdd: (g: Game) => void;
   existingIds: Set<number>;
 }) {
+  const [mode, setMode] = useState<"online" | "manual">("online");
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
+
+  /* 联网模式状态 */
   const [term, setTerm] = useState("");
   const [searching, setSearching] = useState(false);
   const [hits, setHits] = useState<SteamSearchHit[]>([]);
   const [err, setErr] = useState<string | null>(null);
-
   const [info, setInfo] = useState<SteamAppInfo | null>(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
-  const [imgErr, setImgErr] = useState(false);
+  const [oZh, setOZh] = useState("");
+  const [oGenres, setOGenres] = useState<string[]>([]);
+  const [oMinCpu, setOMinCpu] = useState(2);
+  const [oMinGpu, setOMinGpu] = useState(2);
+  const [oMinRam, setOMinRam] = useState(8);
+  const [oMinNote, setOMinNote] = useState("");
+  const [oRecCpu, setORecCpu] = useState(3);
+  const [oRecGpu, setORecGpu] = useState(3);
+  const [oRecRam, setORecRam] = useState(16);
+  const [oRecNote, setORecNote] = useState("");
 
-  const [zh, setZh] = useState("");
-  const [genres, setGenres] = useState<string[]>([]);
-  const [cpuIdx, setCpuIdx] = useState(2);
-  const [gpuIdx, setGpuIdx] = useState(2);
-  const [ram, setRam] = useState(8);
-  const [dup, setDup] = useState(false);
-  const [saved, setSaved] = useState(false);
+  /* 手动模式状态 */
+  const [mName, setMName] = useState("");
+  const [mZh, setMZh] = useState("");
+  const [mId, setMId] = useState("");
+  const [mYear, setMYear] = useState(String(new Date().getFullYear()));
+  const [mFree, setMFree] = useState(false);
+  const [mGenres, setMGenres] = useState<string[]>(["其他"]);
+  const [mImgUrl, setMImgUrl] = useState("");
+  const [mImgData, setMImgData] = useState<string | null>(null);
+  const [mWin, setMWin] = useState(true);
+  const [mMac, setMMac] = useState(false);
+  const [mLinux, setMLinux] = useState(false);
+  const [mMinCpu, setMMinCpu] = useState(2);
+  const [mMinGpu, setMMinGpu] = useState(2);
+  const [mMinRam, setMMinRam] = useState(8);
+  const [mMinNote, setMMinNote] = useState("");
+  const [mRecCpu, setMRecCpu] = useState(3);
+  const [mRecGpu, setMRecGpu] = useState(3);
+  const [mRecRam, setMRecRam] = useState(16);
+  const [mRecNote, setMRecNote] = useState("");
+  const [mErr, setMErr] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -45,19 +151,19 @@ export default function AddGameModal({
 
   if (!open) return null;
 
-  const resetDetail = () => {
-    setInfo(null); setZh(""); setGenres([]); setCpuIdx(2); setGpuIdx(2); setRam(8);
-    setDup(false); setSaved(false); setImgErr(false); setErr(null);
-  };
+  const busy = searching || loadingInfo;
 
+  /* ---- 联网 ---- */
   const loadInfo = async (appId: number) => {
-    setLoadingInfo(true); setErr(null); setSaved(false);
+    setLoadingInfo(true); setErr(null); setSavedMsg(null);
     try {
       const d = await getSteamAppInfo(appId);
       setInfo(d);
-      setZh(d.name);
-      setGenres(mapGenres(d.genres));
-      setDup(existingIds.has(appId));
+      setOZh(d.name);
+      setOGenres(mapGenres(d.genres));
+      setOMinNote(d.minRequirements);
+      setORecNote(d.recRequirements);
+      setHits([]);
     } catch (e) {
       setErr(e instanceof NetError ? e.message : "请求失败，请检查网络后重试");
     } finally {
@@ -68,12 +174,13 @@ export default function AddGameModal({
   const doSearch = async () => {
     const t = term.trim();
     if (!t) return;
-    setErr(null); setSaved(false);
+    setErr(null); setSavedMsg(null);
     if (/^\d{2,8}$/.test(t)) { loadInfo(Number(t)); return; }
     setSearching(true);
     try {
       const list = await searchSteamGames(t);
       setHits(list);
+      setInfo(null);
       if (list.length === 0) setErr(`没有找到与「${t}」相关的游戏，可尝试英文名或直接输入 AppID`);
     } catch (e) {
       setErr(e instanceof NetError ? e.message : "请求失败，请检查网络后重试");
@@ -82,217 +189,291 @@ export default function AddGameModal({
     }
   };
 
-  const save = () => {
+  const saveOnline = () => {
     if (!info) return;
-    const game: Game = {
+    onAdd({
       id: info.appId,
       name: info.name,
-      zh: zh.trim() || info.name,
+      zh: oZh.trim() || info.name,
       year: info.year ?? new Date().getFullYear(),
-      genres: genres.length > 0 ? genres : ["其他"],
-      minCpu: CPU_TIERS[cpuIdx].score,
-      minGpu: GPU_TIERS[gpuIdx].score,
-      minRam: ram,
+      genres: oGenres.length > 0 ? oGenres : ["其他"],
+      minCpu: CPU_TIERS[oMinCpu].score, minGpu: GPU_TIERS[oMinGpu].score, minRam: oMinRam,
+      recCpu: CPU_TIERS[oRecCpu].score, recGpu: GPU_TIERS[oRecGpu].score, recRam: oRecRam,
+      minNote: oMinNote, recNote: oRecNote,
       platforms: { win: info.platforms.windows, mac: info.platforms.mac, linux: info.platforms.linux },
       free: info.isFree,
+      image: capsule(info.appId),
       custom: true,
-    };
-    onAdd(game);
-    setSaved(true);
-    setDup(existingIds.has(info.appId));
+    });
+    setSavedMsg(`已保存「${info.name}」到本地游戏库（共 ${existingIds.size + 1} 款自定义）`);
   };
 
-  const busy = searching || loadingInfo;
+  /* ---- 手动 ---- */
+  const onFile = (f: File | null) => {
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => setMImgData(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(f);
+  };
+
+  const saveManual = () => {
+    setMErr(null); setSavedMsg(null);
+    const name = mName.trim();
+    if (name.length < 1) { setMErr("请填写游戏名称"); return; }
+    const idNum = mId.trim() !== "" ? Number(mId.trim()) : NaN;
+    const id = Number.isFinite(idNum) && idNum > 0
+      ? idNum
+      : -Math.abs(Math.floor(Math.random() * 1e9) + 1); // 无 AppID 时用负数本地 ID
+    onAdd({
+      id,
+      name,
+      zh: mZh.trim() || name,
+      year: Number(mYear) || new Date().getFullYear(),
+      genres: mGenres.length > 0 ? mGenres : ["其他"],
+      minCpu: CPU_TIERS[mMinCpu].score, minGpu: GPU_TIERS[mMinGpu].score, minRam: mMinRam,
+      recCpu: CPU_TIERS[mRecCpu].score, recGpu: GPU_TIERS[mRecGpu].score, recRam: mRecRam,
+      minNote: mMinNote, recNote: mRecNote,
+      platforms: { win: mWin, mac: mMac, linux: mLinux },
+      free: mFree,
+      image: mImgData ?? (mImgUrl.trim() || (id > 0 ? capsule(id) : undefined)),
+      custom: true,
+    });
+    setSavedMsg(`已保存「${name}」到本地游戏库`);
+  };
+
+  const genreToggle = (g: string, list: string[], set: (v: string[]) => void) =>
+    set(list.includes(g) ? list.filter((x) => x !== g) : [...list, g]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/80 px-4 py-8 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/85 px-4 py-8 backdrop-blur-sm"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="animate-fade-up w-full max-w-2xl rounded-md border border-ink-600 bg-ink-900 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]">
-        {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-ink-700 px-5 py-4">
-          <div>
-            <div className="font-display text-[10px] font-semibold tracking-[0.28em] text-teal-core">
-              ONLINE · STEAM STORE API
+        {/* 头部 + 模式切换 */}
+        <div className="border-b border-ink-700 px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-display text-[10px] font-semibold tracking-[0.28em] text-teal-core">
+                {mode === "online" ? "ONLINE · STEAM STORE API" : "MANUAL · LOCAL LIBRARY"}
+              </div>
+              <h3 className="mt-1 text-lg font-black text-ink-100">
+                {mode === "online" ? "联网添加 Steam 游戏" : "手动录入游戏"}
+              </h3>
             </div>
-            <h3 className="mt-1 text-lg font-black text-ink-100">联网添加 Steam 游戏</h3>
+            <button onClick={onClose} className="rounded-sm border border-ink-700 px-2.5 py-1 text-sm text-ink-400 transition-colors hover:border-ink-600 hover:text-ink-100">
+              关闭
+            </button>
           </div>
-          <button onClick={onClose} className="rounded-sm border border-ink-700 px-2.5 py-1 text-sm text-ink-400 transition-colors hover:border-ink-600 hover:text-ink-100">
-            关闭
-          </button>
+          <div className="mt-3 flex rounded-sm border border-ink-700 bg-ink-950 p-1">
+            {(["online", "manual"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); setSavedMsg(null); }}
+                className={`flex-1 rounded-[3px] px-3 py-1.5 text-xs font-bold transition-colors ${
+                  mode === m ? "bg-teal-core text-ink-950" : "text-ink-400 hover:text-ink-100"
+                }`}
+              >
+                {m === "online" ? "联网搜索 Steam" : "手动填写（无需联网）"}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="px-5 py-5">
-          {/* 搜索栏 */}
-          <form
-            onSubmit={(e) => { e.preventDefault(); doSearch(); }}
-            className="flex gap-2"
-          >
-            <div className="relative flex-1">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
-              <input
-                autoFocus
-                value={term}
-                onChange={(e) => setTerm(e.target.value)}
-                placeholder="输入游戏名搜索，或直接输入 AppID（商店链接中的数字）"
-                className="w-full rounded-sm border border-ink-700 bg-ink-850 py-2.5 pl-9 pr-3 text-sm text-ink-100 outline-none placeholder:text-ink-600 focus:border-teal-core/60"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={busy || !term.trim()}
-              className="flex items-center gap-2 rounded-sm bg-teal-core px-5 py-2.5 text-sm font-black text-ink-950 transition-all hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {busy && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink-950/30 border-t-ink-950" style={{ animationDuration: "0.7s" }} />}
-              {loadingInfo ? "查询中" : "搜索"}
-            </button>
-          </form>
-
-          {err && !info && (
-            <div className="mt-3 flex items-start gap-2 rounded-sm border border-warn/30 bg-warn/[0.07] px-3.5 py-2.5 text-xs leading-relaxed text-warn">
-              <WarnIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              {err}
+        <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+          {savedMsg && (
+            <div className="mb-3 animate-fade-up flex items-center gap-2 rounded-sm border border-ok/40 bg-ok/10 px-3 py-2 text-xs font-bold text-ok">
+              <SteamIcon className="h-4 w-4" /> {savedMsg}
             </div>
           )}
 
-          {/* 搜索结果 */}
-          {!info && !searching && hits.length > 0 && (
-            <div className="mt-4 max-h-56 overflow-y-auto rounded-sm border border-ink-700">
-              {hits.map((h, i) => (
-                <button
-                  key={h.id}
-                  onClick={() => { setHits([]); setTerm(h.name); loadInfo(h.id); }}
-                  className={`flex w-full items-center gap-3 border-b border-ink-800 px-4 py-2.5 text-left transition-colors last:border-0 hover:bg-ink-800 ${i < 6 ? "" : ""}`}
-                >
-                  <img
-                    src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${h.id}/capsule_sm_120.jpg`}
-                    alt=""
-                    loading="lazy"
-                    className="h-8 w-20 shrink-0 rounded-[2px] object-cover"
-                    onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
+          {mode === "online" ? (
+            <div className="space-y-3">
+              {/* 搜索框 */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
+                  <input
+                    value={term}
+                    onChange={(e) => setTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && doSearch()}
+                    placeholder="游戏名 或 AppID（如 2358720）"
+                    className={inputCls + " pl-8"}
                   />
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink-100">{h.name}</span>
-                  <span className="font-display shrink-0 text-[10px] text-ink-500">#{h.id}</span>
-                  {existingIds.has(h.id) && (
-                    <span className="shrink-0 rounded-sm border border-warn/40 px-1.5 py-0.5 text-[10px] text-warn">已在库中</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {searching && (
-            <div className="mt-4 flex items-center gap-3 rounded-sm border border-ink-700 bg-ink-850 px-4 py-6 text-sm text-ink-400">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink-600 border-t-teal-core" style={{ animationDuration: "0.7s" }} />
-              正在通过公共代理请求 Steam 商店…（首次可能需要几秒）
-            </div>
-          )}
-
-          {/* 详情 + 配置表单 */}
-          {info && (
-            <div className="mt-5 animate-fade-up">
-              <div className="flex gap-4 overflow-hidden rounded-sm border border-ink-700 bg-ink-850">
-                {!imgErr ? (
-                  <img
-                    src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${info.appId}/capsule_231x87.jpg`}
-                    alt={info.name}
-                    className="h-[86px] w-[231px] shrink-0 object-cover max-sm:hidden"
-                    onError={() => setImgErr(true)}
-                  />
-                ) : null}
-                <div className="min-w-0 flex-1 py-3 pr-4">
-                  <div className="flex items-center gap-2">
-                    <h4 className="truncate text-base font-black text-ink-100">{info.name}</h4>
-                    <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 text-[10px] font-bold ${info.isFree ? "border-ok/40 bg-ok/10 text-ok" : "border-ink-600 text-ink-300"}`}>
-                      {info.isFree ? "免费" : "付费"}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] text-ink-400">
-                    <span className="font-display">AppID {info.appId}</span>
-                    {info.year && <span>· {info.year} 年</span>}
-                    <span>· {info.platforms.windows ? "Windows" : ""}{info.platforms.mac ? " / macOS" : ""}{info.platforms.linux ? " / Linux" : ""}</span>
-                  </div>
-                  {info.minRequirements && (
-                    <details className="mt-2">
-                      <summary className="cursor-pointer text-[11px] text-teal-core hover:underline">查看 Steam 官方最低配置</summary>
-                      <pre className="mt-1.5 max-h-28 overflow-y-auto whitespace-pre-wrap rounded-sm bg-ink-900 p-2 font-sans text-[11px] leading-relaxed text-ink-300">{info.minRequirements}</pre>
-                    </details>
-                  )}
                 </div>
+                <button
+                  onClick={doSearch}
+                  disabled={busy}
+                  className="rounded-sm bg-teal-core px-4 text-sm font-bold text-ink-950 transition-colors hover:opacity-90 disabled:opacity-50"
+                >
+                  {busy ? "查询中…" : "搜索"}
+                </button>
               </div>
 
-              {dup && (
-                <div className="mt-3 flex items-center gap-2 rounded-sm border border-warn/30 bg-warn/[0.07] px-3.5 py-2 text-xs text-warn">
-                  <WarnIcon className="h-3.5 w-3.5" /> 该游戏已存在于游戏库中，重复保存会覆盖旧条目。
+              {err && (
+                <div className="flex items-start gap-2 rounded-sm border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
+                  <WarnIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {err}
                 </div>
               )}
 
-              {/* 要求配置 */}
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-[11px] font-bold text-ink-400">显示名称（中文）</span>
-                  <input value={zh} onChange={(e) => setZh(e.target.value)}
-                    className="mt-1 w-full rounded-sm border border-ink-700 bg-ink-850 px-3 py-2 text-sm text-ink-100 outline-none focus:border-teal-core/60" />
-                </label>
-                <label className="block">
-                  <span className="text-[11px] font-bold text-ink-400">最低内存要求</span>
-                  <select value={ram} onChange={(e) => setRam(Number(e.target.value))}
-                    className="mt-1 w-full rounded-sm border border-ink-700 bg-ink-850 px-3 py-2 text-sm text-ink-100 outline-none focus:border-teal-core/60">
-                    {RAM_CHOICES.map((r) => <option key={r} value={r}>{r} GB</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-[11px] font-bold text-ink-400">最低 CPU 档位（对照官方要求选）</span>
-                  <select value={cpuIdx} onChange={(e) => setCpuIdx(Number(e.target.value))}
-                    className="mt-1 w-full rounded-sm border border-ink-700 bg-ink-850 px-3 py-2 text-sm text-ink-100 outline-none focus:border-teal-core/60">
-                    {CPU_TIERS.map((t, i) => <option key={t.name} value={i}>{t.name} · {t.desc}（{t.score} 分）</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-[11px] font-bold text-ink-400">最低 GPU 档位（对照官方要求选）</span>
-                  <select value={gpuIdx} onChange={(e) => setGpuIdx(Number(e.target.value))}
-                    className="mt-1 w-full rounded-sm border border-ink-700 bg-ink-850 px-3 py-2 text-sm text-ink-100 outline-none focus:border-teal-core/60">
-                    {GPU_TIERS.map((t, i) => <option key={t.name} value={i}>{t.name} · {t.desc}（{t.score} 分）</option>)}
-                  </select>
-                </label>
+              {/* 搜索结果 */}
+              {hits.length > 0 && (
+                <div className="max-h-44 overflow-y-auto rounded-sm border border-ink-800">
+                  {hits.map((h) => (
+                    <button
+                      key={h.id}
+                      onClick={() => loadInfo(h.id)}
+                      className="flex w-full items-center justify-between gap-3 border-b border-ink-800/70 px-3 py-2 text-left text-sm text-ink-100 transition-colors last:border-0 hover:bg-ink-850"
+                    >
+                      <span className="truncate">{h.name}</span>
+                      <span className="shrink-0 font-display text-[10px] text-ink-500">#{h.id}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* 详情 */}
+              {info && (
+                <div className="space-y-3 rounded-sm border border-ink-700 bg-ink-950/50 p-3">
+                  <div className="flex items-center gap-3">
+                    <img src={capsule(info.appId)} alt={info.name} className="h-14 w-24 rounded-sm object-cover" />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-bold text-ink-100">{info.name}</div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[11px] text-ink-500">
+                        <span>#{info.appId}</span>
+                        <span>{info.year ?? "年份未知"}</span>
+                        <span className={info.isFree ? "text-ok" : "text-amber-core"}>
+                          {info.isFree ? "免费" : "付费"}
+                        </span>
+                        <a href={`https://store.steampowered.com/app/${info.appId}/`} target="_blank" rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-teal-core hover:underline">
+                          商店页 <ExternalIcon className="h-2.5 w-2.5" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Field label="显示名称">
+                    <input value={oZh} onChange={(e) => setOZh(e.target.value)} className={inputCls} />
+                  </Field>
+
+                  <div>
+                    <span className="mb-1 block text-[11px] font-bold tracking-wide text-ink-400">类型标签</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ALL_GENRES.map((g) => (
+                        <button key={g} onClick={() => genreToggle(g, oGenres, setOGenres)}
+                          className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
+                            oGenres.includes(g)
+                              ? "border-teal-core bg-teal-core/15 text-teal-core"
+                              : "border-ink-700 text-ink-500 hover:border-ink-600 hover:text-ink-300"
+                          }`}>
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <ConfigBlock
+                    title="最低配置" accent="text-amber-core"
+                    cpuIdx={oMinCpu} gpuIdx={oMinGpu} ram={oMinRam} note={oMinNote}
+                    onCpu={setOMinCpu} onGpu={setOMinGpu} onRam={setOMinRam} onNote={setOMinNote}
+                  />
+                  <ConfigBlock
+                    title="推荐配置（达到即判完美运行）" accent="text-ok"
+                    cpuIdx={oRecCpu} gpuIdx={oRecGpu} ram={oRecRam} note={oRecNote}
+                    onCpu={setORecCpu} onGpu={setORecGpu} onRam={setORecRam} onNote={setORecNote}
+                  />
+
+                  <button onClick={saveOnline}
+                    className="w-full rounded-sm bg-amber-core py-2.5 text-sm font-black text-ink-950 transition-colors hover:bg-amber-hi active:scale-[0.98]">
+                    保存到本地游戏库
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="游戏名称 *">
+                  <input value={mName} onChange={(e) => setMName(e.target.value)} placeholder="如 Hollow Knight" className={inputCls} />
+                </Field>
+                <Field label="中文/显示名">
+                  <input value={mZh} onChange={(e) => setMZh(e.target.value)} placeholder="如 空洞骑士" className={inputCls} />
+                </Field>
+                <Field label="Steam AppID（可选）">
+                  <input value={mId} onChange={(e) => setMId(e.target.value)} placeholder="如 367520" className={inputCls} />
+                </Field>
+                <Field label="发行年份">
+                  <input value={mYear} onChange={(e) => setMYear(e.target.value)} className={inputCls} />
+                </Field>
               </div>
 
-              <div className="mt-3">
-                <span className="text-[11px] font-bold text-ink-400">类型标签（影响筛选）</span>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {ALL_GENRES.map((g) => {
-                    const on = genres.includes(g);
-                    return (
-                      <button key={g} onClick={() => setGenres((cur) => on ? cur.filter((x) => x !== g) : [...cur, g])}
-                        className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${on ? "border-teal-core bg-teal-core/10 text-teal-core" : "border-ink-700 text-ink-400 hover:border-ink-600 hover:text-ink-200"}`}>
-                        {g}
-                      </button>
-                    );
-                  })}
+              <div className="flex flex-wrap items-center gap-4 text-xs">
+                <label className="flex cursor-pointer items-center gap-1.5 text-ink-300">
+                  <input type="checkbox" checked={mFree} onChange={(e) => setMFree(e.target.checked)} className="accent-teal-core" />
+                  免费游戏
+                </label>
+                {([["Windows", mWin, setMWin], ["macOS", mMac, setMMac], ["Linux", mLinux, setMLinux]] as const).map(([lb, v, sv]) => (
+                  <label key={lb} className="flex cursor-pointer items-center gap-1.5 text-ink-300">
+                    <input type="checkbox" checked={v} onChange={(e) => sv(e.target.checked)} className="accent-teal-core" />
+                    {lb}
+                  </label>
+                ))}
+              </div>
+
+              <div>
+                <span className="mb-1 block text-[11px] font-bold tracking-wide text-ink-400">类型标签</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {ALL_GENRES.map((g) => (
+                    <button key={g} onClick={() => genreToggle(g, mGenres, setMGenres)}
+                      className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
+                        mGenres.includes(g)
+                          ? "border-teal-core bg-teal-core/15 text-teal-core"
+                          : "border-ink-700 text-ink-500 hover:border-ink-600 hover:text-ink-300"
+                      }`}>
+                      {g}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center gap-3">
-                <button onClick={resetDetail}
-                  className="rounded-sm border border-ink-700 px-4 py-2.5 text-sm text-ink-300 transition-colors hover:border-ink-600 hover:text-ink-100">
-                  换一个
-                </button>
-                <button onClick={save}
-                  className={`flex-1 rounded-sm py-2.5 text-sm font-black transition-all active:scale-[0.98] ${saved ? "bg-ok/15 text-ok" : "bg-amber-core text-ink-950 hover:bg-amber-hi"}`}>
-                  {saved ? "已保存 ✓ 可继续添加或关闭" : dup ? "覆盖保存" : "保存到游戏库"}
-                </button>
+              {/* 图片 */}
+              <div>
+                <span className="mb-1 block text-[11px] font-bold tracking-wide text-ink-400">封面图片（可选）</span>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => fileRef.current?.click()}
+                    className="flex h-16 w-28 shrink-0 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-ink-600 bg-ink-950 text-[10px] text-ink-500 transition-colors hover:border-teal-core/60 hover:text-teal-core">
+                    <UploadIcon className="h-4 w-4" /> 本地上传
+                  </button>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+                  <input value={mImgUrl} onChange={(e) => { setMImgUrl(e.target.value); setMImgData(null); }}
+                    placeholder="或填图片 URL…" className={inputCls} />
+                </div>
+                {(mImgData || mImgUrl) && (
+                  <img src={mImgData ?? mImgUrl} alt="封面预览"
+                    className="mt-2 h-20 w-36 rounded-sm border border-ink-700 object-cover" />
+                )}
               </div>
+
+              <ConfigBlock
+                title="最低配置" accent="text-amber-core"
+                cpuIdx={mMinCpu} gpuIdx={mMinGpu} ram={mMinRam} note={mMinNote}
+                onCpu={setMMinCpu} onGpu={setMMinGpu} onRam={setMMinRam} onNote={setMMinNote}
+              />
+              <ConfigBlock
+                title="推荐配置（达到即判完美运行）" accent="text-ok"
+                cpuIdx={mRecCpu} gpuIdx={mRecGpu} ram={mRecRam} note={mRecNote}
+                onCpu={setMRecCpu} onGpu={setMRecGpu} onRam={setMRecRam} onNote={setMRecNote}
+              />
+
+              {mErr && <div className="text-xs text-bad">{mErr}</div>}
+
+              <button onClick={saveManual}
+                className="w-full rounded-sm bg-amber-core py-2.5 text-sm font-black text-ink-950 transition-colors hover:bg-amber-hi active:scale-[0.98]">
+                保存到本地游戏库
+              </button>
             </div>
           )}
-
-          {/* 底部说明 */}
-          <p className="mt-5 flex items-start gap-2 border-t border-ink-800 pt-3.5 text-[11px] leading-relaxed text-ink-600">
-            <SteamIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-steam" />
-            数据来自 Steam 官方商店 API（经公共 CORS 代理中转）。添加的游戏保存在本机浏览器，参与匹配；
-            AppID 在商店页网址中，如 store.steampowered.com/app/<b className="text-ink-400">620</b>。
-            若代理不可用，可稍后重试或使用内置游戏库。
-            <a className="ml-auto shrink-0 text-teal-core hover:underline" href="https://store.steampowered.com/" target="_blank" rel="noreferrer">
-              去 Steam 商店 <ExternalIcon className="inline h-2.5 w-2.5" />
-            </a>
-          </p>
         </div>
       </div>
     </div>

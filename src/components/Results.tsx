@@ -22,7 +22,13 @@ function GameCard({
   const fpsPct = Math.min(100, Math.round((fit.estFps / 120) * 100));
   const barColor =
     fit.level === "perfect" ? "bg-ok" : fit.level === "smooth" ? "bg-teal-core" : "bg-warn";
-  const hue = (fit.game.id % 7) * 40;
+  const hue = (Math.abs(fit.game.id) % 7) * 40;
+  // 优先自定义封面（本地上传/外链），其次 Steam 官方图（负数本地 ID 无官方图）
+  const imgSrc =
+    fit.game.image ??
+    (fit.game.id > 0
+      ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${fit.game.id}/capsule_616x353.jpg`
+      : null);
 
   return (
     <article
@@ -31,9 +37,9 @@ function GameCard({
     >
       {/* 封面 */}
       <div className="relative aspect-[460/140] overflow-hidden border-b border-ink-700">
-        {!imgErr ? (
+        {imgSrc && !imgErr ? (
           <img
-            src={`https://cdn.cloudflare.steamstatic.com/steam/apps/${fit.game.id}/capsule_616x353.jpg`}
+            src={imgSrc}
             alt={fit.game.name}
             loading="lazy"
             onError={() => setImgErr(true)}
@@ -105,16 +111,22 @@ function GameCard({
                 <TrashIcon className="h-3 w-3" />
               </button>
             )}
-            <a
-              href={`https://store.steampowered.com/app/${fit.game.id}/`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-sm border border-ink-600 bg-ink-800 px-2.5 py-1.5 font-display text-[11px] font-semibold text-steam transition-colors hover:border-steam/60 hover:bg-steam/10"
-            >
-              <SteamIcon className="h-3.5 w-3.5" />
-              Steam
-              <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
-            </a>
+            {fit.game.id > 0 ? (
+              <a
+                href={`https://store.steampowered.com/app/${fit.game.id}/`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 rounded-sm border border-ink-600 bg-ink-800 px-2.5 py-1.5 font-display text-[11px] font-semibold text-steam transition-colors hover:border-steam/60 hover:bg-steam/10"
+              >
+                <SteamIcon className="h-3.5 w-3.5" />
+                Steam
+                <ExternalIcon className="h-2.5 w-2.5 opacity-60" />
+              </a>
+            ) : (
+              <span className="flex items-center gap-1.5 rounded-sm border border-ink-700 bg-ink-850 px-2.5 py-1.5 font-display text-[11px] font-semibold text-ink-500">
+                本地游戏
+              </span>
+            )}
           </span>
         </div>
       </div>
