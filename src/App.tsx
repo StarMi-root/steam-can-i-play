@@ -8,7 +8,7 @@ import SpecPanel from "./components/SpecPanel";
 import Results from "./components/Results";
 import AddGameModal from "./components/AddGameModal";
 import { StepOs, StepCpu, StepGpu, StepRam, StepShell, HardwareItem } from "./components/Steps";
-import { ArrowRight, CheckIcon, LogoMark, PlusIcon } from "./components/icons";
+import { ArrowRight, CheckIcon, GlobeIcon, LogoMark, PlusIcon } from "./components/icons";
 import { probeNetwork } from "./lib/net";
 
 const STEP_META = [
@@ -87,6 +87,7 @@ export default function App() {
   const [step, setStep] = useState(0);
   const [build, setBuild] = useState<Build>(EMPTY_BUILD);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"online" | "manual">("online");
 
   const [customHardware, setCustomHardware] = useState<
     (HardwareItem & { kind: "cpu" | "gpu" })[]
@@ -210,11 +211,20 @@ export default function App() {
               {net === "ok" ? "联网正常" : net === "down" ? "代理受限" : "检测中"}
             </button>
             <button
-              onClick={() => setModalOpen(true)}
-              className="group flex items-center gap-2 rounded-sm border border-teal-core/50 bg-teal-core/[0.08] px-4 py-2.5 text-sm font-bold text-teal-core transition-all hover:-translate-y-0.5 hover:bg-teal-core/[0.16] hover:shadow-[0_8px_24px_-10px_rgba(61,220,211,0.5)]"
+              onClick={() => { setModalMode("manual"); setModalOpen(true); }}
+              title="不联网，直接填写游戏名、配置和图片，自动保存到本地游戏库"
+              className="group flex items-center gap-2 rounded-sm border border-ink-600 bg-ink-850 px-3.5 py-2.5 text-sm font-bold text-ink-200 transition-all hover:-translate-y-0.5 hover:border-amber-core/60 hover:text-amber-core hover:shadow-[0_8px_24px_-10px_rgba(245,168,60,0.45)]"
             >
               <PlusIcon className="h-4 w-4 transition-transform group-hover:rotate-90" />
-              联网添加游戏
+              手动添加游戏
+            </button>
+            <button
+              onClick={() => { setModalMode("online"); setModalOpen(true); }}
+              title="通过 Steam 官方 API 搜索并导入游戏"
+              className="group flex items-center gap-2 rounded-sm border border-teal-core/50 bg-teal-core/[0.08] px-3.5 py-2.5 text-sm font-bold text-teal-core transition-all hover:-translate-y-0.5 hover:bg-teal-core/[0.16] hover:shadow-[0_8px_24px_-10px_rgba(61,220,211,0.5)]"
+            >
+              <GlobeIcon className="h-4 w-4 transition-transform group-hover:scale-110" />
+              联网添加
               {customGames.length > 0 && (
                 <span className="font-display rounded-sm bg-teal-core px-1.5 py-0.5 text-[10px] font-bold text-ink-950">
                   {customGames.length}
@@ -248,7 +258,7 @@ export default function App() {
                 totalSupported={totalSupported}
                 onBack={backToEdit}
                 onRestart={restart}
-                onAddGame={() => setModalOpen(true)}
+                onAddGame={() => { setModalMode("online"); setModalOpen(true); }}
                 onDeleteCustomGame={deleteCustomGame}
               />
             ) : (
@@ -343,6 +353,7 @@ export default function App() {
 
       <AddGameModal
         open={modalOpen}
+        initialMode={modalMode}
         onClose={() => setModalOpen(false)}
         onAdd={addCustomGame}
         existingIds={existingIds}

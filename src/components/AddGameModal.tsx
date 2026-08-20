@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ALL_GENRES, Game } from "../data/games";
 import { CPU_TIERS, GPU_TIERS } from "../data/hardware";
 import { NetError, SteamAppInfo, SteamSearchHit, getSteamAppInfo, searchSteamGames } from "../lib/net";
-import { ExternalIcon, SearchIcon, SteamIcon, UploadIcon, WarnIcon } from "./icons";
+import { ExternalIcon, GlobeIcon, PlusIcon, SearchIcon, SteamIcon, UploadIcon, WarnIcon } from "./icons";
 
 const RAM_CHOICES = [2, 4, 6, 8, 12, 16, 24, 32, 64];
 
@@ -91,14 +91,20 @@ function ConfigBlock({
 /* ---------- 主组件 ---------- */
 
 export default function AddGameModal({
-  open, onClose, onAdd, existingIds,
+  open, onClose, onAdd, existingIds, initialMode = "online",
 }: {
   open: boolean;
   onClose: () => void;
   onAdd: (g: Game) => void;
   existingIds: Set<number>;
+  initialMode?: "online" | "manual";
 }) {
-  const [mode, setMode] = useState<"online" | "manual">("online");
+  const [mode, setMode] = useState<"online" | "manual">(initialMode);
+
+  /* 每次打开时，按调用方指定的模式重置 */
+  useEffect(() => {
+    if (open) setMode(initialMode);
+  }, [open, initialMode]);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
   /* 联网模式状态 */
@@ -265,18 +271,35 @@ export default function AddGameModal({
               关闭
             </button>
           </div>
-          <div className="mt-3 flex rounded-sm border border-ink-700 bg-ink-950 p-1">
-            {(["online", "manual"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setSavedMsg(null); }}
-                className={`flex-1 rounded-[3px] px-3 py-1.5 text-xs font-bold transition-colors ${
-                  mode === m ? "bg-teal-core text-ink-950" : "text-ink-400 hover:text-ink-100"
-                }`}
-              >
-                {m === "online" ? "联网搜索 Steam" : "手动填写（无需联网）"}
-              </button>
-            ))}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => { setMode("online"); setSavedMsg(null); }}
+              className={`flex items-center gap-2.5 rounded-sm border px-3 py-2.5 text-left transition-all ${
+                mode === "online"
+                  ? "border-teal-core bg-teal-core/[0.1] text-teal-core"
+                  : "border-ink-700 bg-ink-950 text-ink-400 hover:border-ink-600 hover:text-ink-200"
+              }`}
+            >
+              <GlobeIcon className="h-4.5 w-4.5 shrink-0" />
+              <span>
+                <span className="block text-xs font-black">联网搜索 Steam</span>
+                <span className="block text-[10px] opacity-70">需代理可用 · 自动拉配置</span>
+              </span>
+            </button>
+            <button
+              onClick={() => { setMode("manual"); setSavedMsg(null); }}
+              className={`flex items-center gap-2.5 rounded-sm border px-3 py-2.5 text-left transition-all ${
+                mode === "manual"
+                  ? "border-amber-core bg-amber-core/[0.1] text-amber-core"
+                  : "border-ink-700 bg-ink-950 text-ink-400 hover:border-ink-600 hover:text-ink-200"
+              }`}
+            >
+              <PlusIcon className="h-4.5 w-4.5 shrink-0" />
+              <span>
+                <span className="block text-xs font-black">手动填写</span>
+                <span className="block text-[10px] opacity-70">无需联网 · 保存到本地</span>
+              </span>
+            </button>
           </div>
         </div>
 
