@@ -1,13 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { Game } from "../data/games";
 import { UpdateProgress, UpdateResult, updateGameLibrary } from "../lib/updater";
-import { TopSource } from "../lib/net";
+import { BrowseOpts, TopSource } from "../lib/net";
 import { GlobeIcon, RestartIcon } from "./icons";
 
 const SOURCES: { id: TopSource; label: string; tag: string; desc: string }[] = [
+  { id: "steam-browse", label: "Steam 商店搜索 · 分页抓取", tag: "官方", desc: "按分类 + 排序翻页批量抓取，单次可拉取数百款，远超 Top100" },
   { id: "steamspy-week", label: "SteamSpy · 近两周最热", tag: "第三方", desc: "按最近游玩人数排名的 Top100，追新首选" },
   { id: "steamspy-forever", label: "SteamSpy · 历史最热", tag: "第三方", desc: "全 Steam 历史玩家数 Top100，经典全收录" },
   { id: "steam-official", label: "Steam 官方热销榜", tag: "官方", desc: "官方 featured 接口的热销 / 新品榜" },
+];
+
+const GENRES = [
+  { v: "", l: "全部分类" }, { v: "1", l: "动作" }, { v: "3", l: "角色扮演" },
+  { v: "2", l: "策略" }, { v: "23", l: "独立" }, { v: "28", l: "模拟" },
+  { v: "4", l: "休闲" }, { v: "37", l: "免费" }, { v: "9", l: "竞速" }, { v: "18", l: "体育" },
+];
+const SORTS = [
+  { v: "_ASC", l: "综合（相关度）" }, { v: "Reviews_DESC", l: "评测数最多" },
+  { v: "Released_DESC", l: "发行最新" }, { v: "Name_ASC", l: "名称 A→Z" },
+];
+const PAGES = [
+  { v: 2, l: "2 页 ≈ 100 款" }, { v: 4, l: "4 页 ≈ 200 款" },
+  { v: 6, l: "6 页 ≈ 300 款" }, { v: 10, l: "10 页 ≈ 500 款" },
 ];
 
 export default function UpdateModal({
@@ -18,11 +33,15 @@ export default function UpdateModal({
   existingIds: Set<number>;
   onAdded: (games: Game[]) => void;
 }) {
-  const [source, setSource] = useState<TopSource>("steamspy-week");
+  const [source, setSource] = useState<TopSource>("steam-browse");
   const [progress, setProgress] = useState<UpdateProgress | null>(null);
   const [result, setResult] = useState<UpdateResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const cancelRef = useRef(false);
+  /* 商店搜索分页选项 */
+  const [bGenre, setBGenre] = useState("");
+  const [bSort, setBSort] = useState("_ASC");
+  const [bPages, setBPages] = useState(4);
 
   useEffect(() => {
     if (!open) return;
@@ -40,13 +59,15 @@ export default function UpdateModal({
   const running = !!progress;
   const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : null;
 
+  const browse: BrowseOpts = { genre: bGenre, sort: bSort, pages: bPages };
+
   const run = async () => {
     cancelRef.current = false;
     setErr(null);
     setResult(null);
     setProgress({ phase: "连接数据源", done: 0, total: 0 });
     try {
-      const res = await updateGameLibrary(existingIds, source, setProgress, () => cancelRef.current);
+      const res = await updateGameLibrary(existingIds, source, setProgress, () => cancelRef.current, browse);
       if (res.added.length > 0) onAdded(res.added);
       setResult(res);
     } catch (e) {
@@ -101,9 +122,40 @@ export default function UpdateModal({
             ))}
           </div>
 
+          {/* 商店搜索分页选项 */}
+          {source === "steam-browse" && (
+            <div className="animate-fade-up grid grid-cols-3 gap-2 rounded-sm border border-teal-core/30 bg-teal-core/[0.05] p-3">
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-bold tracking-wide text-ink-500">分类</span>
+                <select value={bGenre} onChange={(e) => setBGenre(e.target.value)}
+                  className="w-full rounded-sm border border-ink-700 bg-ink-950 px-2 py-1.5 text-xs text-ink-100 outline-none focus:border-teal-core/60">
+                  {GENRES.map((g) => <option key={g.v} value={g.v}>{g.l}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-bold tracking-wide text-ink-500">排序</span>
+                <select value={bSort} onChange={(e) => setBSort(e.target.value)}
+                  className="w-full rounded-sm border border-ink-700 bg-ink-950 px-2 py-1.5 text-xs text-ink-100 outline-none focus:border-teal-core/60">
+                  {SORTS.map((s) => <option key={s.v} value={s.v}>{s.l}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[10px] font-bold tracking-wide text-ink-500">抓取页数</span>
+                <select value={bPages} onChange={(e) => setBPages(Number(e.target.value))}
+                  className="w-full rounded-sm border border-ink-700 bg-ink-950 px-2 py-1.5 text-xs text-ink-100 outline-none focus:border-teal-core/60">
+                  {PAGES.map((p) => <option key={p.v} value={p.v}>{p.l}</option>)}
+                </select>
+              </label>
+              <p className="col-span-3 text-[10px] leading-relaxed text-ink-500">
+                每页约 50 款，翻页越多覆盖越广；网络受限时可减少页数或改用实时检测逐款查询。
+              </p>
+            </div>
+          )}
+
           <p className="rounded-sm border border-ink-800 bg-ink-950/70 px-3 py-2.5 text-[11px] leading-relaxed text-ink-500">
             更新流程：拉取榜单 → 逐款获取详情 → <b className="text-ink-300">自动解析官方最低 / 推荐配置文本</b> →
             换算性能分入库。未公布配置的游戏会自动跳过；结果保存在本地，可随时在报告页移除。
+            Steam 全库约 40 万款无法全部打包，想查<b className="text-teal-core">任意单款</b>请用页头的「实时检测」。
           </p>
 
           {/* 进度 */}

@@ -203,15 +203,68 @@ export async function getSteamAppInfo(appId: number): Promise<SteamAppInfo> {
 
 export interface TopGame { id: number; name: string }
 
-export type TopSource = "steamspy-week" | "steamspy-forever" | "steam-official";
+export type TopSource = "steamspy-week" | "steamspy-forever" | "steam-official" | "steam-browse";
+
+export interface BrowseOpts {
+  /** Steam 商店 genre 编号，空串=全部 */
+  genre: string;
+  /** 排序：_ASC 综合 / Reviews_DESC 评测数 / Released_DESC 发行日期 / Name_ASC 名称 */
+  sort: string;
+  /** 拉取页数（每页约 50 款） */
+  pages: number;
+}
 
 /**
- * 拉取热门游戏榜单，支持三种数据源（官方 + 第三方任选）：
+ * Steam 商店搜索分页抓取（官方搜索接口）：
+ * 支持分类 + 排序 + 翻页，单次可批量获取数百款，远超 Top100 榜单。
+ */
+export async function fetchSteamBrowse(
+  browse: BrowseOpts,
+  onPage?: (page: number) => void,
+): Promise<TopGame[]> {
+  const out: TopGame[] = [];
+  const seen = new Set<number>();
+  for (let p = 1; p <= browse.pages; p++) {
+    onPage?.(p);
+    const url =
+      "https://store.steampowered.com/search/results/?ndl=1&json=1&category1=998&cc=cn&l=schinese" +
+      `&sort_by=${browse.sort}&page=${p}` +
+      (browse.genre ? `&genre=${browse.genre}` : "");
+    const data = await fetchViaProxy(url, 20000);
+    const html: string = typeof data?.results_html === "string" ? data.results_html : "";
+    if (!html) break;
+    const ids = [...html.matchAll(/data-ds-appid="([\d,]+)"/g)].map((m) =>
+      Number(m[1].split(",")[0]),
+    );
+    const names = [...html.matchAll(/<span class="title">([^<]+)<\/span>/g)].map((m) =>
+      m[1].trim(),
+    );
+    const n = Math.min(ids.length, names.length);
+    for (let i = 0; i < n; i++) {
+      const id = ids[i];
+      if (!Number.isFinite(id) || id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      out.push({ id, name: names[i] });
+    }
+    if (ids.length === 0) break; // 已翻完
+  }
+  if (out.length === 0) {
+    throw new NetError("Steam 商店搜索无结果（代理可能受限），请更换分类或稍后重试");
+  }
+  return out;
+}
+
+/**
+ * 拉取热门游戏榜单，支持四种数据源（官方 + 第三方任选）：
  * - steamspy-week    第三方 SteamSpy 近两周最热 Top100
  * - steamspy-forever 第三方 SteamSpy 历史最热 Top100
  * - steam-official   Steam 官方 featured categories 热销榜
+ * - steam-browse     Steam 官方商店搜索分页（分类 + 排序 + 翻页，数百款）
  */
-export async function fetchSteamTopList(source: TopSource): Promise<TopGame[]> {
+export async function fetchSteamTopList(source: TopSource, browse?: BrowseOpts): Promise<TopGame[]> {
+  if (source === "steam-browse") {
+    return fetchSteamBrowse(browse ?? { genre: "", sort: "_ASC", pages: 4 });
+  }
   const out: TopGame[] = [];
   const seen = new Set<number>();
   const push = (rawId: unknown, name: unknown) => {

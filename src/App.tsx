@@ -9,11 +9,12 @@ import Results from "./components/Results";
 import AddGameModal from "./components/AddGameModal";
 import UpdateModal from "./components/UpdateModal";
 import LinuxGuideModal from "./components/LinuxGuide";
+import CheckGameModal from "./components/CheckGameModal";
 import AiChat from "./components/AiChat";
 import Toolbox from "./components/Toolbox";
 import SteamAccount from "./components/SteamAccount";
 import { StepOs, StepCpu, StepGpu, StepRam, StepShell, StepMobo, HardwareItem, MoboPick } from "./components/Steps";
-import { ArrowRight, CheckIcon, ChipIcon, GlobeIcon, LogoMark, PlusIcon, RestartIcon, SteamIcon } from "./components/icons";
+import { ArrowRight, CheckIcon, ChipIcon, GaugeIcon, GlobeIcon, LogoMark, PlusIcon, RestartIcon, SteamIcon } from "./components/icons";
 import { probeNetwork } from "./lib/net";
 import { STEAM_CONN_KEY, SteamConn, SteamOwnedGame, fetchOwnedGames } from "./lib/steam";
 
@@ -106,6 +107,7 @@ export default function App() {
     } catch { return null; }
   });
   const [steamOpen, setSteamOpen] = useState(false);
+  const [checkOpen, setCheckOpen] = useState(false);
   const [ownedGames, setOwnedGames] = useState<SteamOwnedGame[] | null>(null);
   useEffect(() => {
     if (!steamConn) { setOwnedGames(null); return; }
@@ -310,6 +312,18 @@ export default function App() {
               )}
               <span className="max-w-[7rem] truncate">{steamConn ? steamConn.persona : "Steam 账户"}</span>
               {steamConn && <span className="animate-led h-1.5 w-1.5 rounded-full bg-ok" />}
+            </button>
+            <button
+              onClick={() => setCheckOpen(true)}
+              title="实时连接 Steam，查询任意一款游戏的官方配置并立刻对比你的硬件"
+              className="group flex items-center gap-2 rounded-sm border border-teal-core/60 bg-teal-core/[0.1] px-3 py-2 text-xs font-black text-teal-core transition-all hover:-translate-y-0.5 hover:bg-teal-core/[0.18] hover:shadow-[0_8px_24px_-10px_rgba(63,208,201,0.6)] sm:px-3.5 sm:text-sm"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-teal-core opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-teal-core" />
+              </span>
+              <GaugeIcon className="h-4 w-4 transition-transform group-hover:scale-110" />
+              实时检测
             </button>
             <button
               onClick={() => { setModalMode("manual"); setModalOpen(true); }}
@@ -518,6 +532,15 @@ export default function App() {
           </span>
         </footer>
       </div>
+
+      <CheckGameModal
+        open={checkOpen}
+        onClose={() => setCheckOpen(false)}
+        build={build}
+        buildReady={ready}
+        onAdd={addCustomGame}
+        existingIds={existingIds}
+      />
 
       <AddGameModal
         open={modalOpen}
