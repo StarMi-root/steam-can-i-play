@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ALL_GENRES, Game } from "../data/games";
 import { CPU_TIERS, GPU_TIERS } from "../data/hardware";
-import { NetError, SteamAppInfo, SteamSearchHit, getSteamAppInfo, searchSteamGames } from "../lib/net";
+import { NetError, PcgwHit, SteamAppInfo, SteamSearchHit, getSteamAppInfo, searchPcgw, searchSteamGames } from "../lib/net";
 import { ExternalIcon, GlobeIcon, PlusIcon, SearchIcon, SteamIcon, UploadIcon, WarnIcon } from "./icons";
 
 const RAM_CHOICES = [2, 4, 6, 8, 12, 16, 24, 32, 64];
@@ -107,6 +107,11 @@ export default function AddGameModal({
   }, [open, initialMode]);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
+  /** 联网模式数据源：Steam 官方商店 / PCGamingWiki 第三方 */
+  const [srcMode, setSrcMode] = useState<"steam" | "pcgw">("steam");
+  const [pcgwHits, setPcgwHits] = useState<PcgwHit[]>([]);
+  const [resolving, setResolving] = useState<string | null>(null);
+
   /* 联网模式状态 */
   const [term, setTerm] = useState("");
   const [searching, setSearching] = useState(false);
@@ -181,17 +186,42 @@ export default function AddGameModal({
     const t = term.trim();
     if (!t) return;
     setErr(null); setSavedMsg(null);
-    if (/^\d{2,8}$/.test(t)) { loadInfo(Number(t)); return; }
     setSearching(true);
     try {
-      const list = await searchSteamGames(t);
-      setHits(list);
-      setInfo(null);
-      if (list.length === 0) setErr(`没有找到与「${t}」相关的游戏，可尝试英文名或直接输入 AppID`);
+      if (srcMode === "steam") {
+        if (/^\d{2,8}$/.test(t)) { loadInfo(Number(t)); return; }
+        const list = await searchSteamGames(t);
+        setHits(list); setPcgwHits([]); setInfo(null);
+        if (list.length === 0) setErr(`没有找到与「${t}」相关的游戏，可尝试英文名或直接输入 AppID`);
+      } else {
+        const list = await searchPcgw(t);
+        setPcgwHits(list); setHits([]); setInfo(null);
+        if (list.length === 0) setErr(`PCGamingWiki 没有找到「${t}」，试试英文原名`);
+      }
     } catch (e) {
       setErr(e instanceof NetError ? e.message : "请求失败，请检查网络后重试");
     } finally {
       setSearching(false);
+    }
+  };
+
+  /** 第三方结果 → 尝试解析对应 Steam 页面；失败则转手动模式预填 */
+  const resolvePcgw = async (title: string) => {
+    setResolving(title); setErr(null); setSavedMsg(null);
+    try {
+      const found = await searchSteamGames(title);
+      if (found.length > 0) {
+        await loadInfo(found[0].id);
+        setPcgwHits([]);
+      } else {
+        setMode("manual"); setMName(title);
+        setSavedMsg(`PCGamingWiki 找到「${title}」但未匹配到 Steam 页面，已切到手动模式，请补全配置后保存`);
+      }
+    } catch {
+      setMode("manual"); setMName(title);
+      setSavedMsg(`代理受限，无法解析「${title}」的 Steam 数据，已切到手动模式补全`);
+    } finally {
+      setResolving(null);
     }
   };
 
@@ -312,6 +342,21 @@ export default function AddGameModal({
 
           {mode === "online" ? (
             <div className="space-y-3">
+              {/* 联网数据源切换 */}
+              <div className="flex rounded-sm border border-ink-700 bg-ink-950 p-0.5 text-[11px] font-bold">
+                <button
+                  onClick={() => { setSrcMode("steam"); setPcgwHits([]); }}
+                  className={`flex-1 rounded-[3px] px-2 py-1.5 transition-colors ${srcMode === "steam" ? "bg-teal-core text-ink-950" : "text-ink-400 hover:text-ink-100"}`}
+                >
+                  Steam 官方商店
+                </button>
+                <button
+                  onClick={() => { setSrcMode("pcgw"); setHits([]); }}
+                  className={`flex-1 rounded-[3px] px-2 py-1.5 transition-colors ${srcMode === "pcgw" ? "bg-amber-core text-ink-950" : "text-ink-400 hover:text-ink-100"}`}
+                >
+                  PCGamingWiki · 第三方
+                </button>
+              </div>
               {/* 搜索框 */}
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -339,7 +384,7 @@ export default function AddGameModal({
                 </div>
               )}
 
-              {/* 搜索结果 */}
+              {/* 搜索结果（Steam 官方） */}
               {hits.length > 0 && (
                 <div className="max-h-44 overflow-y-auto rounded-sm border border-ink-800">
                   {hits.map((h) => (
@@ -352,6 +397,31 @@ export default function AddGameModal({
                       <span className="shrink-0 font-display text-[10px] text-ink-500">#{h.id}</span>
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* 搜索结果（PCGamingWiki 第三方） */}
+              {pcgwHits.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[11px] text-ink-500">
+                    第三方来源 PCGamingWiki · 点击条目自动尝试解析对应 Steam 页面；解析不了会转入手动模式预填
+                  </div>
+                  <div className="max-h-44 overflow-y-auto rounded-sm border border-ink-800">
+                    {pcgwHits.map((h) => (
+                      <div key={h.title} className="flex w-full items-center justify-between gap-2 border-b border-ink-800/70 px-3 py-2 text-sm last:border-0">
+                        <button
+                          onClick={() => resolvePcgw(h.title)}
+                          disabled={!!resolving}
+                          className="min-w-0 flex-1 truncate text-left text-ink-100 transition-colors hover:text-teal-core disabled:opacity-50"
+                        >
+                          {resolving === h.title ? "解析中…" : h.title}
+                        </button>
+                        <a href={h.url} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 text-[10px] text-ink-500 transition-colors hover:text-teal-core">
+                          PCGW <ExternalIcon className="h-2.5 w-2.5" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

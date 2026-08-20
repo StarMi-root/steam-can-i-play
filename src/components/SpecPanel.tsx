@@ -38,6 +38,38 @@ function Meter({ value, max, tone }: { value: number; max: number; tone: string 
 const rowState = (filled: boolean, active: boolean): "off" | "wait" | "on" =>
   filled ? "on" : active ? "wait" : "off";
 
+/** 移动端紧凑档案条：横向滚动芯片，点按跳回对应步骤 */
+export function SpecBar({ build, onJump }: { build: Build; onJump: (s: number) => void }) {
+  const osName = build.os ? OS_OPTIONS.find((o) => o.id === build.os)?.name : null;
+  const short = (s: string | null | undefined, n = 14) =>
+    s ? (s.length > n ? `${s.slice(0, n)}…` : s) : "—";
+  const chips = [
+    { label: "OS", value: osName ?? null, jump: 0 },
+    { label: "CPU", value: build.cpu ? short(build.cpu.name) : null, jump: 1 },
+    { label: "GPU", value: build.gpu ? short(build.gpu.name) : null, jump: 2 },
+    { label: "RAM", value: build.ram != null ? `${build.ram} GB` : null, jump: 3 },
+  ];
+  return (
+    <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+      {chips.map((c) => (
+        <button
+          key={c.label}
+          onClick={() => onJump(c.jump)}
+          className={`flex shrink-0 items-center gap-2 rounded-sm border px-3 py-2 transition-colors ${
+            c.value ? "border-ink-600 bg-ink-850" : "border-dashed border-ink-700 bg-ink-900/50"
+          }`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${c.value ? "animate-led bg-ok text-ok" : "bg-ink-600"}`} />
+          <span className="font-display text-[10px] font-bold tracking-wider text-ink-500">{c.label}</span>
+          <span className={`max-w-[9rem] truncate text-[11px] font-bold ${c.value ? "text-ink-100" : "text-ink-600"}`}>
+            {c.value ?? "待录入"}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function SpecPanel({ build, step, view, onJump }: Props) {
   const osName = build.os ? OS_OPTIONS.find((o) => o.id === build.os)?.name : null;
   const grade =

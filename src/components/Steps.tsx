@@ -4,6 +4,7 @@ import {
   OsId, cpuTierLabel, gpuTierLabel, nearestModel,
 } from "../data/hardware";
 import { ScoreLookup, hardwareLookupLinks, lookupHardwareScore } from "../lib/net";
+import { AMD_CHIPSETS, INTEL_CHIPSETS, MOBO_BRANDS } from "../data/linux";
 import {
   AppleIcon, ArrowLeft, ExternalIcon, GlobeIcon, InfoIcon, LinuxIcon, PlusIcon, SearchIcon, TrashIcon, WindowsIcon,
 } from "./icons";
@@ -11,9 +12,10 @@ import {
 /* ---------- 通用外壳 ---------- */
 
 export function StepShell({
-  index, title, en, desc, hint, onBack, children,
+  index, total = 4, title, en, desc, hint, onBack, children,
 }: {
   index: number;
+  total?: number;
   title: string;
   en: string;
   desc: string;
@@ -27,7 +29,7 @@ export function StepShell({
       <div className="flex items-end justify-between gap-4 border-b-2 border-ink-700 pb-4">
         <div>
           <div className="font-display text-[11px] font-semibold tracking-[0.3em] text-amber-core">
-            STEP {index} / 4 · {en}
+            STEP {index} / {total} · {en}
           </div>
           <h2 className="mt-1.5 text-2xl font-black text-ink-100 sm:text-3xl">{title}</h2>
           <p className="mt-1.5 text-sm text-ink-400">{desc}</p>
@@ -75,10 +77,49 @@ export function StepShell({
 
 /* ---------- 第一步：操作系统 ---------- */
 
-const OS_ICONS: Record<OsId, (p: { className?: string }) => React.ReactNode> = {
-  win11: WindowsIcon, win10: WindowsIcon, win7: WindowsIcon,
-  mac: AppleIcon, linux: LinuxIcon,
-};
+const osIcon = (family: "windows" | "macos" | "linux") =>
+  family === "windows" ? WindowsIcon : family === "macos" ? AppleIcon : LinuxIcon;
+
+function OsCard({
+  o, active, delay, onPick,
+}: {
+  o: (typeof OS_OPTIONS)[number];
+  active: boolean;
+  delay: number;
+  onPick: (os: OsId) => void;
+}) {
+  const Icon = osIcon(o.family);
+  return (
+    <button
+      onClick={() => onPick(o.id)}
+      style={{ animationDelay: `${delay}ms` }}
+      className={`group relative animate-fade-up overflow-hidden rounded-sm border px-3.5 py-3 text-left transition-all duration-200 ${
+        active
+          ? "border-amber-core bg-amber-core/[0.08] shadow-[0_0_0_1px_rgba(245,168,60,0.4)]"
+          : "border-ink-700 bg-ink-850 hover:-translate-y-0.5 hover:border-ink-600 hover:bg-ink-800"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border transition-colors ${
+            active
+              ? "border-amber-core/50 bg-amber-core/10 text-amber-core"
+              : "border-ink-700 bg-ink-800 text-ink-400 group-hover:text-ink-300"
+          }`}
+        >
+          <Icon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <div className={`font-display text-sm font-bold ${active ? "text-amber-hi" : "text-ink-100"}`}>{o.name}</div>
+          <div className="mt-0.5 truncate text-[11px] text-ink-400">{o.sub} · {o.note}</div>
+        </div>
+      </div>
+      {active && (
+        <span className="animate-led animate-pop absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-amber-core text-amber-core" />
+      )}
+    </button>
+  );
+}
 
 export function StepOs({
   value, onPick,
@@ -86,49 +127,121 @@ export function StepOs({
   value: OsId | null;
   onPick: (os: OsId) => void;
 }) {
+  const groups: { label: string; en: string; items: typeof OS_OPTIONS }[] = [
+    { label: "Windows", en: "MICROSOFT", items: OS_OPTIONS.filter((o) => o.family === "windows") },
+    { label: "macOS", en: "APPLE", items: OS_OPTIONS.filter((o) => o.family === "macos") },
+    { label: "Linux 发行版", en: "选具体发行版将生成专属启动教程", items: OS_OPTIONS.filter((o) => o.family === "linux") },
+  ];
+  let i = 0;
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {OS_OPTIONS.map((o, i) => {
-        const Icon = OS_ICONS[o.id];
-        const active = value === o.id;
-        return (
-          <button
-            key={o.id}
-            onClick={() => onPick(o.id)}
-            style={{ animationDelay: `${i * 55}ms` }}
-            className={`group relative animate-fade-up overflow-hidden rounded-sm border px-4 py-4 text-left transition-all duration-200 ${
-              active
-                ? "border-amber-core bg-amber-core/[0.08] shadow-[0_0_0_1px_rgba(245,168,60,0.4)]"
-                : "border-ink-700 bg-ink-850 hover:-translate-y-0.5 hover:border-ink-600 hover:bg-ink-800"
-            }`}
-          >
-            <div className="flex items-center gap-3.5">
-              <span
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-sm border transition-colors ${
-                  active
-                    ? "border-amber-core/50 bg-amber-core/10 text-amber-core"
-                    : "border-ink-700 bg-ink-800 text-ink-400 group-hover:text-ink-300"
+    <div className="space-y-5">
+      {groups.map((g) => (
+        <div key={g.label}>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="font-display text-[11px] font-bold tracking-[0.2em] text-teal-core">{g.label}</span>
+            <span className="hidden text-[10px] text-ink-600 sm:inline">{g.en}</span>
+            <span className="h-px flex-1 bg-ink-800" />
+          </div>
+          <div className={`grid gap-2.5 ${g.items.length > 3 ? "sm:grid-cols-2 xl:grid-cols-3" : "sm:grid-cols-3"}`}>
+            {g.items.map((o) => <OsCard key={o.id} o={o} active={value === o.id} delay={(i++) * 40} onPick={onPick} />)}
+          </div>
+        </div>
+      ))}
+      <div className="animate-fade-up rounded-sm border border-dashed border-ink-700 px-4 py-3.5 text-xs leading-relaxed text-ink-500">
+        <span className="font-bold text-ink-400">提示：</span>
+        Win7/8.1 会自动排除要求 Win10+ 的新游戏；macOS / Linux 只匹配原生支持的游戏。
+        选择具体 <b className="text-teal-core">Linux 发行版</b>后，会额外录入主板，并生成包含驱动安装、Proton
+        配置与 BIOS 调试的<b className="text-teal-core">专属启动教程</b>。
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 主板录入（Linux 用户附加步骤） ---------- */
+
+export interface MoboPick { brand: string; chipset: string }
+
+export function StepMobo({
+  value, onPick, onSkip,
+}: {
+  value: MoboPick | null;
+  onPick: (m: MoboPick) => void;
+  onSkip: () => void;
+}) {
+  const [brand, setBrand] = useState<string | null>(value?.brand ?? null);
+  const [family, setFamily] = useState<"Intel" | "AMD" | null>(null);
+  const [chipset, setChipset] = useState<string | null>(value?.chipset ?? null);
+  const list = family === "Intel" ? INTEL_CHIPSETS : family === "AMD" ? AMD_CHIPSETS : [];
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="mb-2 font-display text-[11px] font-bold tracking-[0.2em] text-ink-400">① 主板品牌</div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {MOBO_BRANDS.map((b) => (
+            <button
+              key={b}
+              onClick={() => setBrand(b)}
+              className={`rounded-sm border px-3 py-2.5 text-xs font-bold transition-all ${
+                brand === b
+                  ? "border-teal-core bg-teal-core/[0.1] text-teal-core"
+                  : "border-ink-700 bg-ink-850 text-ink-300 hover:-translate-y-0.5 hover:border-ink-600"
+              }`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 font-display text-[11px] font-bold tracking-[0.2em] text-ink-400">② 芯片组平台</div>
+        <div className="grid grid-cols-2 gap-2">
+          {(["Intel", "AMD"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => { setFamily(f); setChipset(null); }}
+              className={`rounded-sm border px-3 py-2.5 text-xs font-bold transition-all ${
+                family === f
+                  ? "border-teal-core bg-teal-core/[0.1] text-teal-core"
+                  : "border-ink-700 bg-ink-850 text-ink-300 hover:-translate-y-0.5 hover:border-ink-600"
+              }`}
+            >
+              {f === "Intel" ? "Intel 平台（酷睿系列）" : "AMD 平台（锐龙 / APU）"}
+            </button>
+          ))}
+        </div>
+        {family && (
+          <div className="mt-2 grid animate-fade-up grid-cols-1 gap-2 sm:grid-cols-2">
+            {list.map((c) => (
+              <button
+                key={c}
+                onClick={() => setChipset(c)}
+                className={`rounded-sm border px-3 py-2 text-left text-xs transition-all ${
+                  chipset === c
+                    ? "border-amber-core bg-amber-core/[0.08] font-bold text-amber-hi"
+                    : "border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-600"
                 }`}
               >
-                <Icon className="h-6 w-6" />
-              </span>
-              <div className="min-w-0">
-                <div className={`font-display text-base font-bold ${active ? "text-amber-hi" : "text-ink-100"}`}>
-                  {o.name}
-                </div>
-                <div className="mt-0.5 text-xs text-ink-400">{o.sub} · {o.note}</div>
-              </div>
-            </div>
-            {active && (
-              <span className="animate-led absolute right-3 top-3 h-2 w-2 animate-pop rounded-full bg-amber-core text-amber-core" />
-            )}
-          </button>
-        );
-      })}
-      <div className="animate-fade-up rounded-sm border border-dashed border-ink-700 px-4 py-4 text-xs leading-relaxed text-ink-500 sm:col-span-2" style={{ animationDelay: "300ms" }}>
-        <span className="font-bold text-ink-400">提示：</span>
-        选择 Windows 7 / 8.1 时，2017 年之后要求 Win10+ 的新游戏会被自动排除；选择 macOS 或 Linux
-        时只匹配原生支持的游戏。不确定的话，在「此电脑」上右键 → 属性即可查看。
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 border-t border-ink-800 pt-4">
+        <button
+          disabled={!brand || !chipset}
+          onClick={() => brand && chipset && onPick({ brand, chipset })}
+          className="rounded-sm bg-teal-core px-5 py-2.5 text-sm font-black text-ink-950 transition-all enabled:hover:brightness-110 enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          完成录入 · 查看匹配结果
+        </button>
+        <button onClick={onSkip} className="rounded-sm border border-ink-700 px-4 py-2.5 text-xs text-ink-400 transition-colors hover:border-ink-600 hover:text-ink-100">
+          跳过，使用通用教程
+        </button>
+        <span className="text-[11px] text-ink-600">主板型号印在主板正面或外包装上；芯片组可用命令 <code className="font-display text-teal-core">sudo dmidecode -t baseboard</code> 查看</span>
       </div>
     </div>
   );

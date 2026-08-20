@@ -186,6 +186,46 @@ export const UploadIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const CopyIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <rect x="9" y="9" width="11" height="11" rx="1.5" />
+      <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
+    </g>
+  </svg>
+);
+
+export const SendIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <path d="M20 4 10 14" />
+      <path d="M20 4 13.5 20l-3.5-6-6-3.5L20 4z" />
+    </g>
+  </svg>
+);
+
+export const RobotIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <rect x="5" y="8" width="14" height="10" rx="2" />
+      <path d="M12 8V5M9 5h6" />
+      <circle cx="9.5" cy="13" r="1" fill="currentColor" stroke="none" />
+      <circle cx="14.5" cy="13" r="1" fill="currentColor" stroke="none" />
+      <path d="M9.5 16h5" />
+    </g>
+  </svg>
+);
+
+export const ChipIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <rect x="4" y="4" width="16" height="16" rx="1.5" />
+      <rect x="8" y="8" width="8" height="8" />
+      <path d="M2 9h2M2 15h2M20 9h2M20 15h2M9 2v2M15 2v2M9 20v2M15 20v2" />
+    </g>
+  </svg>
+);
+
 export const PlusIcon = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
     <g {...S} strokeWidth={2.2}>

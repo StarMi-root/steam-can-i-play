@@ -14,6 +14,7 @@
   --color-ink-500: #5d6d84;
   --color-ink-400: #8b99ad;
   --color-ink-300: #a9b6c8;
+  --color-ink-200: #cdd8e6;
   --color-ink-100: #e8edf4;
 
   --color-amber-hi: #ffd08a;
@@ -137,4 +138,23 @@ body {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+
+/* ---------- 手机端适配 ---------- */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+/* iOS 聚焦输入框时避免页面自动放大（字号 < 16px 会触发缩放） */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+/* 刘海屏安全区 */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

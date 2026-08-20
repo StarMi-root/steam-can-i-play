@@ -203,12 +203,15 @@ export async function getSteamAppInfo(appId: number): Promise<SteamAppInfo> {
 
 export interface TopGame { id: number; name: string }
 
+export type TopSource = "steamspy-week" | "steamspy-forever" | "steam-official";
+
 /**
- * 拉取 Steam 热门游戏列表：
- * 1) SteamSpy「史上最热 Top 100」  2) Steam 官方 featured categories 热销榜
- * 两个来源去重合并，任一可用即可；全部失败抛出 NetError。
+ * 拉取热门游戏榜单，支持三种数据源（官方 + 第三方任选）：
+ * - steamspy-week    第三方 SteamSpy 近两周最热 Top100
+ * - steamspy-forever 第三方 SteamSpy 历史最热 Top100
+ * - steam-official   Steam 官方 featured categories 热销榜
  */
-export async function fetchSteamTopList(): Promise<TopGame[]> {
+export async function fetchSteamTopList(source: TopSource): Promise<TopGame[]> {
   const out: TopGame[] = [];
   const seen = new Set<number>();
   const push = (rawId: unknown, name: unknown) => {
@@ -219,16 +222,7 @@ export async function fetchSteamTopList(): Promise<TopGame[]> {
     out.push({ id, name: name.trim() });
   };
 
-  try {
-    const data = await fetchViaProxy("https://steamspy.com/api.php?request=top100forever", 15000);
-    if (data && typeof data === "object") {
-      for (const v of Object.values(data) as any[]) push(v?.appid, v?.name);
-    }
-  } catch {
-    /* 尝试下一个来源 */
-  }
-
-  try {
+  if (source === "steam-official") {
     const data = await fetchViaProxy(
       "https://store.steampowered.com/api/featuredcategories/?l=schinese&cc=cn",
       15000,
@@ -237,14 +231,49 @@ export async function fetchSteamTopList(): Promise<TopGame[]> {
       const items = data?.[key]?.items;
       if (Array.isArray(items)) for (const it of items) push(it?.id, it?.name);
     }
-  } catch {
-    /* 忽略 */
+  } else {
+    const ep = source === "steamspy-week" ? "top100in2weeks" : "top100forever";
+    const data = await fetchViaProxy(`https://steamspy.com/api.php?request=${ep}`, 15000);
+    if (data && typeof data === "object") {
+      for (const v of Object.values(data) as any[]) push(v?.appid, v?.name);
+    }
   }
 
   if (out.length === 0) {
-    throw new NetError("无法获取 Steam 热门榜单（代理可能受限），可稍后重试或用「联网添加」逐一导入");
+    throw new NetError("该数据源暂时不可用（代理可能受限），请更换数据源或稍后重试");
   }
   return out.slice(0, 120);
+}
+
+/* ---------------- 第三方游戏数据源：PCGamingWiki ---------------- */
+
+export interface PcgwHit { title: string; url: string }
+
+/**
+ * 通过 PCGamingWiki 的 MediaWiki API 搜索游戏（第三方数据源）。
+ * 该接口带 origin=* 直接支持跨域，无需代理。
+ */
+export async function searchPcgw(query: string): Promise<PcgwHit[]> {
+  const ctrl = new AbortController();
+  const t = window.setTimeout(() => ctrl.abort(), 9000);
+  try {
+    const url =
+      "https://www.pcgamingwiki.com/w/api.php?action=opensearch" +
+      `&search=${encodeURIComponent(query)}&limit=10&namespace=0&format=json&origin=*`;
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new NetError(`PCGamingWiki 返回 HTTP ${res.status}`);
+    const data = await res.json();
+    const titles: unknown[] = Array.isArray(data?.[1]) ? data[1] : [];
+    const urls: unknown[] = Array.isArray(data?.[3]) ? data[3] : [];
+    return titles
+      .map((tt, i) => ({ title: String(tt), url: String(urls[i] ?? "") }))
+      .filter((h) => h.title.trim().length > 0);
+  } catch (e) {
+    if (e instanceof NetError) throw e;
+    throw new NetError("PCGamingWiki 搜索失败，请检查网络后重试");
+  } finally {
+    window.clearTimeout(t);
+  }
 }
 
 /* ---------------- 硬件联网查分 ---------------- */

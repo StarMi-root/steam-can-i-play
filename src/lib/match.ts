@@ -33,7 +33,8 @@ export function osSupported(game: Game, os: OsId): boolean {
       return game.platforms.win && game.year <= WIN7_MAX_YEAR;
     case "mac":
       return game.platforms.mac;
-    case "linux":
+    default:
+      // 所有 Linux 发行版 → 看是否原生支持 Linux
       return game.platforms.linux;
   }
 }

@@ -3,9 +3,9 @@ import { ALL_GENRES } from "../data/games";
 import {
   Build, Fit, LEVEL_META, machineGrade, upgradeHint,
 } from "../lib/match";
-import { OS_OPTIONS, cpuTierLabel, gpuTierLabel } from "../data/hardware";
+import { OS_OPTIONS, cpuTierLabel, gpuTierLabel, isLinuxId } from "../data/hardware";
 import {
-  ArrowLeft, ExternalIcon, GaugeIcon, PlusIcon, RestartIcon, SteamIcon, TrashIcon, VrIcon, WarnIcon,
+  ArrowLeft, ExternalIcon, GaugeIcon, LinuxIcon, PlusIcon, RestartIcon, SteamIcon, TrashIcon, VrIcon, WarnIcon,
 } from "./icons";
 
 /* ---------- 游戏卡片 ---------- */
@@ -180,7 +180,7 @@ function ScanOverlay({ done }: { done: () => void }) {
 /* ---------- 结果主体 ---------- */
 
 export default function Results({
-  build, playable, rejected, totalSupported, onBack, onRestart, onAddGame, onDeleteCustomGame,
+  build, playable, rejected, totalSupported, onBack, onRestart, onAddGame, onDeleteCustomGame, onOpenGuide,
 }: {
   build: Build;
   playable: Fit[];
@@ -190,6 +190,7 @@ export default function Results({
   onRestart: () => void;
   onAddGame: () => void;
   onDeleteCustomGame: (id: number) => void;
+  onOpenGuide?: () => void;
 }) {
   const [scanned, setScanned] = useState(false);
   const [levelTab, setLevelTab] = useState<"all" | "perfect" | "smooth" | "low">("all");
@@ -290,13 +291,22 @@ export default function Results({
           <span><b className="text-ink-300">CPU</b> {build.cpu!.name}（{cpuTierLabel(build.cpu!.score)}）</span>
           <span><b className="text-ink-300">GPU</b> {build.gpu!.name}（{gpuTierLabel(build.gpu!.score)}）</span>
           <span><b className="text-ink-300">RAM</b> {build.ram} GB</span>
-          {(build.os === "win7" || build.os === "mac" || build.os === "linux") && (
+          {(build.os === "win7" || build.os === "mac" || (build.os && isLinuxId(build.os))) && (
             <span className="flex items-center gap-1 text-warn">
               <WarnIcon className="h-3.5 w-3.5" />
               {build.os === "win7"
                 ? "Win7/8.1 已排除要求 Win10+ 的新游戏"
                 : build.os === "mac" ? "仅显示原生支持 macOS 的游戏" : "仅显示原生支持 Linux 的游戏"}
             </span>
+          )}
+          {build.os && isLinuxId(build.os) && onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="flex items-center gap-1.5 rounded-sm border border-teal-core/50 bg-teal-core/[0.08] px-2.5 py-1 text-[11px] font-bold text-teal-core transition-colors hover:bg-teal-core/[0.18]"
+            >
+              <LinuxIcon className="h-3.5 w-3.5" />
+              Linux 启动教程
+            </button>
           )}
         </div>
       </div>

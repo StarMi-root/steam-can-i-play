@@ -3,7 +3,7 @@
  * 解析官方最低 / 推荐配置文本 → 生成本工具可用的游戏条目。
  */
 import { Game, mapSteamGenres } from "../data/games";
-import { SteamAppInfo, fetchSteamTopList, getSteamAppInfo } from "./net";
+import { SteamAppInfo, TopSource, fetchSteamTopList, getSteamAppInfo } from "./net";
 import { parseRequirements } from "./reqparse";
 
 export interface UpdateProgress {
@@ -24,11 +24,12 @@ const CONCURRENCY = 3;
 
 export async function updateGameLibrary(
   existingIds: Set<number>,
+  source: TopSource,
   onProgress: (p: UpdateProgress) => void,
   isCancelled: () => boolean,
 ): Promise<UpdateResult> {
-  onProgress({ phase: "获取 Steam 热门游戏榜单", done: 0, total: 0 });
-  const top = await fetchSteamTopList();
+  onProgress({ phase: "获取热门游戏榜单（" + (source === "steam-official" ? "Steam 官方" : "第三方 SteamSpy") + "）", done: 0, total: 0 });
+  const top = await fetchSteamTopList(source);
   const already = top.filter((g) => existingIds.has(g.id)).length;
   const fresh = top.filter((g) => !existingIds.has(g.id)).slice(0, 100);
 

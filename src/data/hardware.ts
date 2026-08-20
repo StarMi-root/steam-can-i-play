@@ -3,7 +3,11 @@
  * CPU/GPU 指数按 1080P 游戏综合表现标定，覆盖 2006 年至今的主流型号。
  */
 
-export type OsId = "win11" | "win10" | "win7" | "mac" | "linux";
+export type OsId =
+  | "win11" | "win10" | "win7"
+  | "mac"
+  | "ubuntu" | "linuxmint" | "popos" | "debian"
+  | "fedora" | "arch" | "manjaro" | "steamos" | "otherlinux";
 
 export interface OsOption {
   id: OsId;
@@ -12,15 +16,30 @@ export interface OsOption {
   note: string;
   /** 满足该平台最低游戏要求的年份阈值：早于此年份的游戏视为支持 */
   minYear: number;
+  family: "windows" | "macos" | "linux";
 }
 
 export const OS_OPTIONS: OsOption[] = [
-  { id: "win11", name: "Windows 11", sub: "2021 至今", note: "兼容所有游戏", minYear: 1990 },
-  { id: "win10", name: "Windows 10", sub: "2015 – 2021", note: "兼容绝大多数游戏", minYear: 1990 },
-  { id: "win7", name: "Windows 7 / 8.1", sub: "2009 – 2015", note: "较新游戏可能无法运行", minYear: 2014 },
-  { id: "mac", name: "macOS", sub: "Apple 电脑", note: "仅限原生支持的游戏", minYear: 1990 },
-  { id: "linux", name: "Linux / SteamOS", sub: "含 Steam Deck", note: "仅限原生支持的游戏", minYear: 1990 },
+  { id: "win11", name: "Windows 11", sub: "2021 至今", note: "兼容所有游戏", minYear: 1990, family: "windows" },
+  { id: "win10", name: "Windows 10", sub: "2015 – 2021", note: "兼容绝大多数游戏", minYear: 1990, family: "windows" },
+  { id: "win7", name: "Windows 7 / 8.1", sub: "2009 – 2015", note: "较新游戏可能无法运行", minYear: 2014, family: "windows" },
+  { id: "mac", name: "macOS", sub: "Apple 电脑", note: "仅限原生支持的游戏", minYear: 1990, family: "macos" },
+  { id: "ubuntu", name: "Ubuntu", sub: "apt · Debian 系", note: "用户最多，教程通用", minYear: 1990, family: "linux" },
+  { id: "linuxmint", name: "Linux Mint", sub: "apt · Debian 系", note: "界面友好，预装 Flatpak", minYear: 1990, family: "linux" },
+  { id: "popos", name: "Pop!_OS", sub: "apt · Debian 系", note: "自带 NVIDIA 驱动镜像", minYear: 1990, family: "linux" },
+  { id: "debian", name: "Debian", sub: "apt · 极稳定", note: "需手动启用 non-free", minYear: 1990, family: "linux" },
+  { id: "fedora", name: "Fedora", sub: "dnf · RedHat 系", note: "内核新，需 RPM Fusion", minYear: 1990, family: "linux" },
+  { id: "arch", name: "Arch Linux", sub: "pacman · 滚动更新", note: "软件最新，需开 multilib", minYear: 1990, family: "linux" },
+  { id: "manjaro", name: "Manjaro", sub: "pacman · Arch 系", note: "mhwd 自动管理驱动", minYear: 1990, family: "linux" },
+  { id: "steamos", name: "SteamOS / Deck", sub: "Steam Deck 掌机", note: "内置 Proton，开箱即玩", minYear: 1990, family: "linux" },
+  { id: "otherlinux", name: "其他 Linux", sub: "openSUSE / NixOS…", note: "生成通用版教程", minYear: 1990, family: "linux" },
 ];
+
+export const LINUX_IDS: OsId[] = [
+  "ubuntu", "linuxmint", "popos", "debian", "fedora", "arch", "manjaro", "steamos", "otherlinux",
+];
+
+export const isLinuxId = (id: OsId): boolean => LINUX_IDS.includes(id);
 
 export interface CpuModel { name: string; brand: "Intel" | "AMD"; score: number }
 export interface GpuModel { name: string; brand: "NVIDIA" | "AMD" | "Intel"; score: number }
