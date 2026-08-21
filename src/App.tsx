@@ -14,7 +14,8 @@ import AiChat from "./components/AiChat";
 import Toolbox from "./components/Toolbox";
 import SteamAccount from "./components/SteamAccount";
 import { StepOs, StepCpu, StepGpu, StepRam, StepShell, StepMobo, HardwareItem, MoboPick } from "./components/Steps";
-import { ArrowRight, CheckIcon, ChipIcon, GaugeIcon, GlobeIcon, LogoMark, PlusIcon, RestartIcon, SteamIcon } from "./components/icons";
+import { ArrowRight, CheckIcon, ChipIcon, GaugeIcon, GlobeIcon, LogoMark, PlusIcon, RestartIcon, SteamIcon, TerminalIcon } from "./components/icons";
+import DeployModal from "./components/DeployModal";
 import { probeNetwork } from "./lib/net";
 import NetworkPanel from "./components/NetworkPanel";
 import { STEAM_CONN_KEY, SteamConn, SteamOwnedGame, fetchOwnedGames } from "./lib/steam";
@@ -109,6 +110,7 @@ export default function App() {
   });
   const [steamOpen, setSteamOpen] = useState(false);
   const [checkOpen, setCheckOpen] = useState(false);
+  const [deployOpen, setDeployOpen] = useState(false);
   const [ownedGames, setOwnedGames] = useState<SteamOwnedGame[] | null>(null);
   useEffect(() => {
     if (!steamConn) { setOwnedGames(null); return; }
@@ -334,6 +336,14 @@ export default function App() {
             >
               <PlusIcon className="h-4 w-4 transition-transform group-hover:rotate-90" />
               手动添加游戏
+            </button>
+            <button
+              onClick={() => setDeployOpen(true)}
+              title="在 Linux 服务器上一键部署本站并开放外网访问（引导式 TUI）"
+              className="group flex items-center gap-2 rounded-sm border border-ink-700 bg-ink-900 px-3 py-2 text-xs font-bold text-ink-300 transition-all hover:-translate-y-0.5 hover:border-teal-core/60 hover:text-teal-core hover:shadow-[0_8px_24px_-10px_rgba(61,220,211,0.4)] sm:px-3.5 sm:text-sm"
+            >
+              <TerminalIcon className="h-4 w-4 transition-transform group-hover:scale-110" />
+              部署到 Linux
             </button>
             <button
               onClick={() => { setModalMode("online"); setModalOpen(true); }}
@@ -583,6 +593,8 @@ export default function App() {
         onClose={() => setNetOpen(false)}
         onStatus={(ok) => setNet(ok ? "ok" : "down")}
       />
+
+      <DeployModal open={deployOpen} onClose={() => setDeployOpen(false)} />
 
       <AiChat context={aiContext} />
     </div>

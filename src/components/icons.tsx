@@ -206,6 +206,24 @@ export const UploadIcon = ({ className }: IconProps) => (
   </svg>
 );
 
+export const TerminalIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <rect x="3" y="4.5" width="18" height="15" rx="1.5" />
+      <path d="M7 9.5l3.5 3L7 15.5M13 15.5h4.5" />
+    </g>
+  </svg>
+);
+
+export const DownloadIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    <g {...S}>
+      <path d="M12 4v11M8 11l4 4 4-4" />
+      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+    </g>
+  </svg>
+);
+
 export const CopyIcon = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
     <g {...S}>
