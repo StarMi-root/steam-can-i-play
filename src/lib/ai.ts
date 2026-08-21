@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2026 王博
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 /**
  * 内置 AI 助手核心：
  * - 免费模式：Pollinations 文本模型，无需 Key、开箱即用（默认）
@@ -45,11 +61,11 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
 
 /** OpenAI 兼容接口预设（含本地服务） */
 export const OPENAI_PRESETS: { label: string; baseUrl: string; model: string; needKey: boolean }[] = [
-  { label: "DeepSeek（推荐）", baseUrl: "https://api.deepseek.com", model: "deepseek-chat", needKey: true },
+  { label: "DeepSeek（推荐，我爱用ds）", baseUrl: "https://api.deepseek.com", model: "deepseek-chat", needKey: true },
   { label: "OpenAI", baseUrl: "https://api.openai.com/v1", model: "gpt-4o-mini", needKey: true },
   { label: "Moonshot Kimi", baseUrl: "https://api.moonshot.cn/v1", model: "moonshot-v1-8k", needKey: true },
   { label: "智谱 GLM", baseUrl: "https://open.bigmodel.cn/api/paas/v4", model: "glm-4-flash", needKey: true },
-  { label: "Groq（极速）", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile", needKey: true },
+  { label: "Groq（极速（F1赛车）", baseUrl: "https://api.groq.com/openai/v1", model: "llama-3.3-70b-versatile", needKey: true },
   { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", model: "deepseek/deepseek-chat", needKey: true },
   { label: "LM Studio（本机）", baseUrl: "http://localhost:1234/v1", model: "local-model", needKey: false },
 ];
@@ -221,7 +237,7 @@ export async function listOllamaModels(baseUrl: string): Promise<string[]> {
 /* ---------------- 本地知识库（离线兜底） ---------------- */
 
 const KB: { re: RegExp; a: string }[] = [
-  { re: /黑屏|进不去|打不开|无法启动/, a: "常见处理顺序：① 验证游戏文件完整性；② 更新显卡驱动；③ Linux 用户在启动项加 PROTON_LOG=1 %command% 查看 ~/steam-*.log；④ 关闭游戏内覆盖层（Steam/Discord）；⑤ 以窗口模式启动试试。仍不行就把日志发给我看。" },
+  { re: /黑屏|进不去|打不开|无法启动/, a: "常见处理顺序：①更新显卡驱动；③ Linux 用户在启动项加 PROTON_LOG=1 %command% 查看 ~/steam-*.log；④ 关闭游戏内覆盖层（Steam/Discord）；⑤ 以窗口模式启动试试。仍不行就把日志发给我看。" },
   { re: /闪退|崩溃|crash/i, a: "闪退排查：① 内存不足会直接闪退，先确认达到最低内存要求；② 更新/回退显卡驱动；③ 关闭超频与 XMP 不稳配置；④ Windows 可尝试以管理员身份运行；⑤ Linux 换 Proton-GE 版本再试。" },
   { re: /proton|steam\s*play/i, a: "开启 Proton：Steam 设置 → 兼容性 → 勾选「为所有其他产品启用 Steam Play」，版本选 Proton Experimental。想要更好兼容性，用 Flatpak 安装 ProtonUp-Qt 获取 GE-Proton，装完重启 Steam。" },
   { re: /帧数|fps|卡|掉帧/i, a: "提升帧数：① 降分辨率或开启 FSR/DLSS；② 关闭体积云、光追等重负载项；③ Linux 用 gamemoderun 前缀启动；④ 确认没被核显接管（笔记本选独显输出）；⑤ 内存组双通道对帧数影响很大。" },
@@ -276,6 +292,6 @@ export async function askAI(
     const text = await callFreeModel(history, context);
     return { text, source: "ai", provider: "免费模型 · Pollinations" };
   } catch {
-    return fallback("⚠ 免费模型暂不可用，已切换离线知识库：");
+    return fallback("⚠ 免费模型暂不可用，已切换离线知识库(一分钱一份货）：");
   }
 }

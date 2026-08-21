@@ -1,14 +1,19 @@
-/**
- * 联网层：访问 Steam 官方商店 API + 硬件性能查询。
- *
- * 「多方案 + 第三方」策略，保证在各种受限环境下都能跑：
- *  ① 直连优先 —— 目标接口若允许 CORS 或用户网络开放，零代理即可；
- *  ② 自定义代理 —— 用户可填自己的反代前缀（Cloudflare Worker / cors-anywhere 等），优先级最高；
- *  ③ 第三方公共代理库 —— 十几个代理错峰竞速，谁先成功用谁；
- *  ④ 通道健康记忆 —— 记住每个代理最近一次成功/失败，下次按健康度排序；
- *  ⑤ 全部失败抛 NetError，由 UI 降级（离线游戏库 + 离线知识库仍可用）。
+/*
+ * Copyright (C) 2026 王博
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 import { EstimateResult, estimateScoreByName } from "../data/hardware";
 
 export class NetError extends Error {
@@ -20,7 +25,7 @@ export class NetError extends Error {
 
 const enc = encodeURIComponent;
 
-/* ---------------- 代理定义 ---------------- */
+/* ---------------- 代理定义 --------------- */
 
 interface ProxyDef {
   id: string;

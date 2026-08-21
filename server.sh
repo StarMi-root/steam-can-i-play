@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 # ==============================================================================
+# Copyright (C) 2026 王博
+# Licensed under GNU General Public License v3.0
+# See LICENSE file for full license text.
+# ==============================================================================
+
+#!/usr/bin/env bash
+# ==============================================================================
 #  能不能玩 · CAN I PLAY —— Linux 一键部署脚本（引导式 TUI）
 #
 #  用法：
@@ -7,15 +14,6 @@
 #    PORT=9000 MODE=cf ./deploy.sh                        # 半自动（公网隧道）
 #    MODE=lr SUBDOMAIN=my-play ./deploy.sh                # 自定义公网域名
 #    DIST_DIR=/var/www/cip PORT=8080 MODE=local ./deploy.sh
-#
-#  能力：
-#    · 引导式终端界面，逐步完成配置
-#    · 端口被占用 → 自动推荐下一个可用端口
-#    · 公网访问三通道：
-#        1) cloudflared 临时隧道（免注册，自动下载安装）
-#        2) localhost.run 自定义域名（基于 SSH，被占用自动推荐相似域名）
-#        3) ngrok（需要已安装并登录）
-#    · 可选生成 systemd 服务：开机自启、长期运行
 # ==============================================================================
 set -u
 
@@ -27,13 +25,7 @@ C_BAD=$'\033[38;5;203m'; C_WARN=$'\033[38;5;220m'
 banner() {
   printf '%s' "${C_AMBER}${C_BOLD}"
   cat <<'EOF'
-  ▄████▄   ▄▄▄       ███▄    █     ██▓ ██▓        ██▓███   ██▓     ▄▄▄       █    ██ ▓██   ██▓
- ▒██▀ ▀█  ▒████▄     ██ ▀█   █    ▓██▒▓██▒       ▓██░  ██▒▓██▒    ▒████▄     ██  ▓██▒▒██  ██▒
- ▒▓█    ▄ ▒██  ▀█▄  ▓██  ▀█ ██▒   ▒██▒▒██░       ▓██░ ██▓▒▒██░    ▒██  ▀█▄  ▓██  ▒██░ ▒██ ██░
- ▒▓▓▄ ▄██▒░██▄▄▄▄██ ▓██▒  ▐▌██▒   ░██░▒██░       ▒██▄█▓▒ ▒▒██░    ░██▄▄▄▄██ ▓▓█  ░██░ ░ ▐██▓░
- ▒ ▓███▀ ░ ▓█   ▓██▒▒██░   ▓██░   ░██░░██████▒   ▒██▒ ░  ░░██████▒ ▓█   ▓██▒▒▒█████▓  ░ ██▒▓░
- ░ ░▒ ▒  ░ ▒▒   ▓▒█░░ ▒░   ▒ ▒    ░▓  ░ ▒░▓  ░   ▒▓▒░ ░  ░░ ▒░▓  ░ ▒▒   ▓▒█░░▒▓▒ ▒ ▒   ██▒▒▒
-   ░  ▒     ▒   ▒▒ ░░ ░░   ░ ▒░    ▒ ░░ ░ ▒  ░   ░▒ ░     ░ ░ ▒  ░  ▒   ▒▒ ░░░▒░ ░ ░ ▓██ ░▒░
+  StarMi的自动化脚本,写这个累死我了不关注以下吗bilibili:星米StarMi
 EOF
   printf '%s' "${C_RESET}"
   printf '  %sCAN I PLAY%s · Steam 硬件游戏匹配器 · Linux 部署向导 v1.0\n\n' "$C_TEAL$C_BOLD" "$C_RESET"
@@ -176,14 +168,14 @@ sleep 1
 if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
   ok "静态服务器已启动（PID $SERVER_PID，日志 $LOG_FILE）"
 else
-  err "服务器启动失败，请查看 $LOG_FILE"; exit 1
+  err "服务器启动失败，它让你查看 $LOG_FILE"; exit 1
 fi
 
 # ---------------- ⑥ 公网隧道 ----------------
 if [ "$MODE" = "cf" ]; then
   box "⑥ 公网隧道 · cloudflared"
   if ! have cloudflared && have curl; then
-    info "未安装 cloudflared，尝试自动下载官方二进制…"
+    info "未安装 cloudflared，自己下载官方二进制去吧…"
     ARCH="$(uname -m)"
     case "$ARCH" in
       x86_64)  CF_ARCH="amd64" ;; aarch64|arm64) CF_ARCH="arm64" ;; *) CF_ARCH="amd64" ;;
@@ -191,14 +183,14 @@ if [ "$MODE" = "cf" ]; then
     CF_URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${CF_ARCH}"
     if curl -fsSL "$CF_URL" -o /tmp/cloudflared && chmod +x /tmp/cloudflared; then
       CLOUDFLARED=/tmp/cloudflared
-      ok "cloudflared 下载完成（/tmp/cloudflared）"
+      ok "cloudflared 下载完成!!!（/tmp/cloudflared）"
     else
-      warn "自动下载失败（网络受限）。可手动安装：https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
+      warn "完蛋，下载是失败了，手动安装：https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/"
     fi
   fi
   CLOUDFLARED="${CLOUDFLARED:-$(command -v cloudflared || true)}"
   if [ -n "$CLOUDFLARED" ]; then
-    info "正在建立临时隧道（约 5-15 秒）…"
+    info "正在建立临时隧道（约 5-15 秒）…不要动我买几个橘子就回来"
     CF_LOG="/tmp/can-i-play.cf.log"
     "$CLOUDFLARED" tunnel --url "http://localhost:$PORT" >"$CF_LOG" 2>&1 &
     TUNNEL_PID=$!
@@ -208,9 +200,9 @@ if [ "$MODE" = "cf" ]; then
       [ -n "$PUBLIC_URL" ] && break
     done
     if [ -n "$PUBLIC_URL" ]; then
-      ok "公网地址已就绪"
+      ok "公网地址已就绪,时刻准备着，为你服务"
     else
-      err "隧道建立超时，请检查外网连通性（或改用方案 3/4）。详见 $CF_LOG"
+      err "你的隧道超时了，快检查外网连通性（或改用方案 3/4）。详见 $CF_LOG"
     fi
   fi
 
@@ -219,7 +211,7 @@ elif [ "$MODE" = "lr" ]; then
   if ! have ssh; then err "该方案需要 ssh，请先安装 openssh-client。"; exit 1; fi
   SUBDOMAIN="${SUBDOMAIN:-}"
   if [ -z "$SUBDOMAIN" ]; then
-    ask "想要的子域名（如 my-play，将得到 my-play.localhost.run）：" "can-i-play"
+    ask "你想要的什么子域名（如 my-play，将得到 my-play.localhost.run）：" "can-i-play"
     SUBDOMAIN="$REPLY"
   fi
   SUBDOMAIN="$(printf '%s' "$SUBDOMAIN" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-')"
@@ -263,7 +255,7 @@ elif [ "$MODE" = "lr" ]; then
     if [ -n "$FOUND" ]; then
       ok "已改用推荐域名：$FOUND.localhost.run"
     else
-      err "所有推荐域名均不可用。可稍后重试，或改用 cloudflared（MODE=cf）。"
+      err "所有推荐域名都用不了。可稍后重试，不然就用 cloudflared（MODE=cf）。"
     fi
   fi
 
@@ -319,7 +311,7 @@ EOF
         warn "服务安装失败（可能缺少 sudo 权限），当前仍以后台进程运行。"
       fi
       ;;
-    *) info "跳过。当前服务以后台进程运行，终端关闭不影响（已 nohup）。" ;;
+    *) info "跳过。当前服务以后台进程运行，终端关闭不影响（已 nohup）。这个功能真伟大" ;;
   esac
 else
   info "无 systemd，服务已用 nohup 后台运行。停止：kill $SERVER_PID"
@@ -348,4 +340,5 @@ printf '%s' "$C_DIM"; printf '按 Ctrl+C 退出向导（后台服务不受影响
 # 保持前台便于查看，隧道进程随脚本退出由 trap 清理（仅隧道，服务器保留）
 trap 'kill ${TUNNEL_PID:-} 2>/dev/null' EXIT INT TERM
 wait ${TUNNEL_PID:-} 2>/dev/null
+echo "sh by StarMi"
 exit 0

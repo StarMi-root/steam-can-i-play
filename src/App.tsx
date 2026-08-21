@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2026 王博
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+//不是，这小坨代码，一大片红的时候下死我了，在这个文件里用终端npm install就可以解决
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EXT_GAMES_KEY, GAMES, Game } from "./data/games";
 import {
@@ -417,7 +435,7 @@ export default function App() {
                     {step === 0 && (
                       <StepShell
                         index={1} en="OPERATING SYSTEM" title="你的电脑是什么系统？"
-                        desc="操作系统决定了哪些游戏可以被安装运行；Linux 请选择具体发行版。"
+                        desc="有时候啊，大游戏除了硬件，还得关注操作系统（还要关注bilibili:星米StarMi)；Linux 请选择具体发行版。"
                         hint="Windows：在「此电脑」上右键 → 属性；macOS：左上角苹果 → 关于本机；Linux：终端执行 cat /etc/os-release。"
                       >
                         <StepOs value={build.os} onPick={pickOs} />
@@ -426,7 +444,8 @@ export default function App() {
                     {step === 1 && (
                       <StepShell
                         index={2} en="PROCESSOR" title="处理器（CPU）是哪款？"
-                        desc={`内置 ${CPU_MODELS.length} 款常见型号，列表里没有的可以手动添加任意型号（自动联网查分）。`}
+                        desc={`内置 ${CPU_MODELS.length} 款常见型号，列表里没有的可以手动添加任意型号（自动联网查分)你这CPU多小众啊。`}
+                        //我服了还要给小众CPU喂饭吃
                         hint="按下 Win + R 输入 dxdiag 回车，「系统」页会显示处理器型号；或打开任务管理器 → 性能 → CPU。"
                         onBack={() => jumpTo(0)}
                       >
@@ -455,7 +474,7 @@ export default function App() {
                     )}
                     {step === 3 && (
                       <StepShell
-                        index={4} en="MEMORY" title="内存有多大？"
+                        index={4} en="MEMORY" title="内存有多大？别告诉我你家用电脑1TB"
                         desc="近年新游戏普遍要求 16GB，内存不足会明显卡顿。"
                         hint="在「此电脑」上右键 → 属性，「已安装的内存」一栏即是总容量；任务管理器 → 性能 → 内存也可以查看。"
                         onBack={() => jumpTo(2)}

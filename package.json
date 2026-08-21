@@ -1,11 +1,12 @@
 {
-  "name": "sandbox-workspace",
+  "name": "can i paly by StarMi",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release": "npm run build && cp LICENSE dist/ && echo 'GPL v3 release ready'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

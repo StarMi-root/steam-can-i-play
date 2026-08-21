@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) 2026 王博
+ * Licensed under GNU General Public License v3.0
+ * See LICENSE file for full license text.
+ */
+
 @import "tailwindcss";
 
 @theme {
@@ -75,7 +81,7 @@
 }
 
 html {
-  scrollbar-color: #3a4a61 #141922;
+  scrollbar-color: #29538d #141922;
 }
 
 body {
@@ -125,7 +131,7 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2a3547;
+  background: #395179;
   border-radius: 8px;
   border: 2px solid #141922;
 }

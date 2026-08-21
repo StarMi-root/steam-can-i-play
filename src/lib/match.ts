@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2026 王博
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 import { Game } from "../data/games";
 import { OsId } from "../data/hardware";
 
@@ -50,7 +66,7 @@ export function evaluate(build: Build, game: Game): Fit | null {
   const ramOk = build.ram >= game.minRam;
 
   let factor = Math.min(cpuR, gpuR);
-  if (!ramOk) factor *= 0.62; // 内存不足会显著拖累实际体验
+  if (!ramOk) factor *= 0.55; // 内存不足会显著拖累实际体验
 
   let bottleneck: Fit["bottleneck"];
   if (!ramOk) bottleneck = "ram";
@@ -141,7 +157,7 @@ export function upgradeHint(build: Build): string | null {
   if (build.ram < 16 && build.gpu.score >= 60) {
     return `内存加到 16GB（当前 ${build.ram}GB）能让不少新游戏跨过门槛`;
   }
-  if (build.gpu.score < build.cpu.score * 0.55) {
+  if (build.gpu.score < build.cpu.score * 0.45) {
     return "显卡明显拖后腿，优先升级显卡";
   }
   if (build.cpu.score < build.gpu.score * 0.5) {

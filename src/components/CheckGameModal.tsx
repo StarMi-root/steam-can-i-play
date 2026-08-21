@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2026 王博
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { Game } from "../data/games";
 import { OS_OPTIONS } from "../data/hardware";
@@ -102,7 +118,7 @@ export default function CheckGameModal({
       setInfo(await getSteamAppInfo(appId));
       setHits([]);
     } catch (e) {
-      setErr(e instanceof NetError ? e.message : "请求失败，请检查网络后重试");
+      setErr(e instanceof NetError ? e.message : "请求失败，请检查网络后重试：（");
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2026 王博
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 /**
  * Steam 账户接入：通过用户自己的 Steam Web API 密钥调用官方接口。
  * - GetOwnedGames       游戏库（含时长）
@@ -88,11 +104,11 @@ export async function fetchOwnedGames(key: string, steamid: string): Promise<Ste
 }
 
 const STATE_MAP: Record<number, [string, string]> = {
-  0: ["离线", "text-ink-500"],
-  1: ["在线", "text-ok"],
+  0: ["离线:(", "text-ink-500"],
+  1: ["在线:)", "text-ok"],
   2: ["忙碌", "text-bad"],
   3: ["离开", "text-warn"],
-  4: ["打盹", "text-ink-400"],
+  4: ["打盹zZZ", "text-ink-400"],
   5: ["寻找交易", "text-teal-core"],
   6: ["寻找游戏", "text-steam"],
 };
