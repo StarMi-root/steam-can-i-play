@@ -16,7 +16,8 @@
  */
 import { useEffect, useState } from "react";
 import { CheckIcon, CopyIcon, DownloadIcon, ExternalIcon, TerminalIcon } from "./icons";
-import deployScript from "../../deploy.sh?raw";
+//import deployScript from "../../deploy.sh?raw";
+const deployScript = "# test raw import\n#!/bin/bash\necho 'test'";
 
 export default function DeployModal({
   open, onClose,
