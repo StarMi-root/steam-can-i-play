@@ -16,6 +16,7 @@ import SteamAccount from "./components/SteamAccount";
 import { StepOs, StepCpu, StepGpu, StepRam, StepShell, StepMobo, HardwareItem, MoboPick } from "./components/Steps";
 import { ArrowRight, CheckIcon, ChipIcon, GaugeIcon, GlobeIcon, LogoMark, PlusIcon, RestartIcon, SteamIcon } from "./components/icons";
 import { probeNetwork } from "./lib/net";
+import NetworkPanel from "./components/NetworkPanel";
 import { STEAM_CONN_KEY, SteamConn, SteamOwnedGame, fetchOwnedGames } from "./lib/steam";
 
 const STEP_META = [
@@ -129,6 +130,7 @@ export default function App() {
 
   /* 联网状态探测：让用户直观看到代理通道是否可用 */
   const [net, setNet] = useState<"checking" | "ok" | "down">("checking");
+  const [netOpen, setNetOpen] = useState(false);
   const recheckNet = () => {
     setNet("checking");
     probeNetwork().then((ok) => setNet(ok ? "ok" : "down"));
@@ -279,8 +281,8 @@ export default function App() {
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
-              onClick={recheckNet}
-              title="点击重新检测联网通道"
+              onClick={() => setNetOpen(true)}
+              title="网络通道设置：配置自定义代理、查看各通道健康度、重新探测"
               className={`flex items-center gap-2 rounded-sm border px-2.5 py-2 font-display text-[10px] font-semibold tracking-wide transition-colors sm:px-3 sm:text-[11px] ${
                 net === "ok"
                   ? "border-ok/40 bg-ok/[0.07] text-ok"
@@ -574,6 +576,12 @@ export default function App() {
         playableIds={playableIds}
         libraryIds={existingIds}
         allGames={allGames}
+      />
+
+      <NetworkPanel
+        open={netOpen}
+        onClose={() => setNetOpen(false)}
+        onStatus={(ok) => setNet(ok ? "ok" : "down")}
       />
 
       <AiChat context={aiContext} />
