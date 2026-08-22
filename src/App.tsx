@@ -14,7 +14,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-//不是，这小坨代码，一大片红的时候下死我了，在这个文件里用终端npm install就可以解决
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EXT_GAMES_KEY, GAMES, Game } from "./data/games";
