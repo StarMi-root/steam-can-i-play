@@ -14,16 +14,4 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-///<reference types="vite/client" />
-
-//显式声明 .sh?raw 模块类型
-declare module '*.sh?raw' {
-  const content: string;
-  export default content;
-}
-
-//保险
-declare module '*.sh' {
-  const src: string;
-  export default src;
-}
+/// <reference types="vite/client" />
