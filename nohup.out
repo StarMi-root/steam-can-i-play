@@ -1,0 +1,19 @@
+符号链接 /home/starm/WattToolkit/steampp/Steam++ 已存在
+文件具有执行权限。
+证书 'SteamTools' 存在。
+info: KestrelServerOptEx[0]
+      Listened https://0.0.0.0:443, HTTPS reverse proxy service startup completed.
+info: KestrelServerOptEx[0]
+      Listened http://0.0.0.0:81, HTTP reverse proxy service startup completed.
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://0.0.0.0:443
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://0.0.0.0:81
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: /home/starm/.local/share/Steam++/Plugins/Accelerator/Yarp
+info: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
