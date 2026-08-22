@@ -440,6 +440,21 @@ export default function App() {
                         <StepOs value={build.os} onPick={pickOs} />
                       </StepShell>
                     )}
+                    {step === 2 && (
+                      <StepShell
+                        index={3} en="GRAPHICS CARD" title="显卡（GPU）是哪款？"
+                        desc={`内置 ${GPU_MODELS.length} 款显卡，从亮机卡到旗舰全覆盖；笔记本请选择对应的独显型号。`}
+                        hint="右键桌面 → 打开「任务管理器」→ 性能 → GPU，可以看到显卡型号；或 Win + R 输入 dxdiag 查看「显示」页。"
+                        onBack={() => jumpTo(1)}
+                      >
+                        <StepGpu
+                          value={build.gpu} onPick={pickGpu}
+                          customItems={customHardware.filter((c) => c.kind === "gpu")}
+                          onAddCustom={addCustomHardware("gpu")}
+                          onDeleteCustom={deleteCustomHardware("gpu")}
+                        />
+                      </StepShell>
+                    )}
                     {step === 1 && (
                       <StepShell
                         index={2} en="PROCESSOR" title="处理器（CPU）是哪款？"
@@ -453,21 +468,6 @@ export default function App() {
                           customItems={customHardware.filter((c) => c.kind === "cpu")}
                           onAddCustom={addCustomHardware("cpu")}
                           onDeleteCustom={deleteCustomHardware("cpu")}
-                        />
-                      </StepShell>
-                    )}
-                    {step === 2 && (
-                      <StepShell
-                        index={3} en="GRAPHICS CARD" title="显卡（GPU）是哪款？"
-                        desc={`内置 ${GPU_MODELS.length} 款显卡，从亮机卡到旗舰全覆盖；笔记本请选择对应的独显型号。`}
-                        hint="右键桌面 → 打开「任务管理器」→ 性能 → GPU，可以看到显卡型号；或 Win + R 输入 dxdiag 查看「显示」页。"
-                        onBack={() => jumpTo(1)}
-                      >
-                        <StepGpu
-                          value={build.gpu} onPick={pickGpu}
-                          customItems={customHardware.filter((c) => c.kind === "gpu")}
-                          onAddCustom={addCustomHardware("gpu")}
-                          onDeleteCustom={deleteCustomHardware("gpu")}
                         />
                       </StepShell>
                     )}
