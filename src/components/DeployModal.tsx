@@ -47,7 +47,7 @@ export default function DeployModal({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "deploy.sh";
+    a.download = "server.sh";
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -109,7 +109,7 @@ export default function DeployModal({
                   onClick={download}
                   className="flex items-center gap-2 rounded-sm bg-teal-core px-4 py-2 text-xs font-black text-ink-950 transition-all hover:brightness-110 active:scale-[0.97]"
                 >
-                  <DownloadIcon className="h-4 w-4" /> 下载 deploy.sh
+                  <DownloadIcon className="h-4 w-4" /> 下载 server.sh
                 </button>
                 <span className="text-[11px] text-ink-500">约 11 KB · 纯 Bash，无额外依赖（仅需 python3）</span>
               </div>

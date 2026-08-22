@@ -144,11 +144,11 @@ export const LEVEL_META: Record<
 /** 整机段位 */
 export function machineGrade(cpuScore: number, gpuScore: number) {
   const v = cpuScore / 320 + gpuScore / 640;
-  if (v < 0.35) return { grade: "上古亮机", tag: "RETRO", tone: "text-ink-300", advice: "以老游戏、独立小品和经典网游为主，新 3A 基本无缘。" };
-  if (v < 0.7) return { grade: "入门办公", tag: "OFFICE", tone: "text-ink-300", advice: "适合网页办公与轻度网游，升级显卡收益最明显。" };
-  if (v < 1.1) return { grade: "网游畅玩", tag: "ESPORT", tone: "text-teal-core", advice: "主流电竞网游毫无压力，3A 大作需降低画质。" };
-  if (v < 1.7) return { grade: "甜品进阶", tag: "SWEET SPOT", tone: "text-amber-core", advice: "1080P 高画质畅玩绝大多数游戏。" };
-  if (v < 2.4) return { grade: "高端发烧", tag: "ENTHUSIAST", tone: "text-amber-hi", advice: "2K 分辨率全开画质，4K 中画质可战。" };
+  if (v <= 0.14685) return { grade: "上古亮机", tag: "RETRO", tone: "text-ink-300", advice: "以老游戏、独立小品和经典网游为主，新 3A 基本无缘。" };
+  if (v < 0.159375) return { grade: "入门办公", tag: "OFFICE", tone: "text-ink-300", advice: "适合网页办公与轻度网游，升级显卡收益最明显。" };
+  if (v < 0.3125) return { grade: "网游畅玩", tag: "ESPORT", tone: "text-teal-core", advice: "主流电竞网游毫无压力，3A 大作需降低画质。" };
+  if (v < 0.44375) return { grade: "甜品进阶", tag: "SWEET SPOT", tone: "text-amber-core", advice: "1080P 高画质畅玩绝大多数游戏。" };
+  if (v < 0.653125) return { grade: "高端发烧", tag: "ENTHUSIAST", tone: "text-amber-hi", advice: "2K 分辨率全开画质，4K 中画质可战。" };
   return { grade: "旗舰极致", tag: "FLAGSHIP", tone: "text-ok", advice: "4K 全高画质 + 高刷，通吃当前所有游戏。" };
 }
 
